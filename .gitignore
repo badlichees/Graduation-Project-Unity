@@ -1,0 +1,132 @@
+# 此 .gitignore 文件应放置在 Unity 项目目录的根目录下
+#
+# Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
+#
+.utmp/
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+*.log
+
+# Unity 默认支持 Blender 资源导入，*.blend1 Blender 文件无需提交到版本控制系统
+*.blend1
+*.blend1.meta
+
+# MemoryCapture 文件可能会变得过大
+# 它们也可能包含极其敏感的数据
+/[Mm]emoryCaptures/
+
+# 录音文件可能会变得过大
+/[Rr]ecordings/
+
+# 如果您希望忽略资源商店工具插件，请取消注释此行
+# /[Aa]ssets/AssetStoreTools*
+
+# 自动生成的 Jetbrains Rider 插件
+/[Aa]ssets/Plugins/Editor/JetBrains*
+# Jetbrains Rider 个人层设置
+*.DotSettings.user
+
+# Visual Studio 缓存目录
+.vs/
+
+# Gradle 缓存目录
+.gradle/
+
+# 自动生成的 VS/MD/Consulo 解决方案和项目文件
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D 生成的 meta 文件
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity3D 在崩溃报告中生成的文件
+sysinfo.txt
+
+# Mono 自动生成的文件
+mono_crash.*
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+*.app
+
+# Crashlytics 生成的文件
+crashlytics-build.properties
+
+# TestRunner 生成的文件
+InitTestScene*.unity*
+
+# Addressables 默认忽略项，用户自定义之前
+/ServerData
+/[Aa]ssets/StreamingAssets/aa*
+/[Aa]ssets/AddressableAssetsData/link.xml*
+/[Aa]ssets/Addressables_Temp*
+# 默认情况下，Addressables 内容构建将生成 addressables_content_state.bin 文件
+# 文件位于特定于平台的子文件夹中，例如：
+# /Assets/AddressableAssetsData/OSX/addressables_content_state.bin
+/[Aa]ssets/AddressableAssetsData/*/*.bin*
+
+# Visual Scripting 自动生成的文件
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
+
+# 通过游戏模式测试自动生成的场景
+/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# ==================== 机器人项目专用规则 ====================
+
+# ROS TCP Connector 生成的临时配置文件（因为包含本机 IP，属敏感内容，故忽略。可遵照 README 中内容进行配置）
+/[Aa]ssets/Resources/ROSConnection.pref
+/[Aa]ssets/Resources/ROSConnection.pref.meta
+
+# URDF 相关（必须提交 .meta，否则会导致引用丢失）
+# 不要忽略任何 .meta 文件！URDF、Mesh 和它们的 .meta 必须一起提交
+# 如果 Importer 生成了临时贴图，可单独添加规则（现在保持默认提交全部）
+
+# 测试脚本（正式开发后应删除，避免提交）
+/[Aa]ssets/Scripts/Test*.cs
+/[Aa]ssets/Scripts/Test*.cs.meta
+
+# 大型模型文件（如果 >100MB，应使用 Git LFS 或外部链接）
+*.blend1
+*.blend1.meta
+# git lfs track "*.stl"
+# git lfs track "*.dae
+
+# 自动生成的 Addressables 构建缓存（如果将来启用 Addressables）
+/[Aa]ssets/AddressableAssetsData/*/*.bin
+
+# ==================== IDE 配置精细化管理 ====================
+# 忽略整个 .vscode 目录下的所有文件...
+.vscode/*
+
+# ...但是把 extensions.json 救回来 (白名单)
+!.vscode/extensions.json
+
+# 如果有通用的 launch.json (调试配置)，也可以救回来
+# !.vscode/launch.json

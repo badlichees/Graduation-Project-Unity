@@ -1,7 +1,7 @@
 {
     "recommendations": [
-      "visualstudiotoolsforunity.vstuc" // Unity 插件
-      "ms-dotnettools.csdevkit"         // C# 开发套件
+      "visualstudiotoolsforunity.vstuc", // Unity 插件
+      "ms-dotnettools.csdevkit",         // C# 开发套件
       "ms-dotnettools.csharp"           // C# 支持
     ]
 }

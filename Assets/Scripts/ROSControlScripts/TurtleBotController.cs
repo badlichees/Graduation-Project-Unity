@@ -12,8 +12,8 @@ public class TurtleBotController : MonoBehaviour
     public float wheelSeparation = 0.16f;
 
     [Header("Physics Tuning")]
-    public float driveDamping = 500f; 
-    public float driveForceLimit = 500f;
+    public float driveDamping = 1000f; 
+    public float driveForceLimit = 2000f;
 
     [Header("Direction Fix")]
     public bool invertLeftWheel = false;
@@ -33,12 +33,14 @@ public class TurtleBotController : MonoBehaviour
     void SetupWheel(ArticulationBody body)
     {
         if (body == null) return;
-        // 确保关节不会进入睡眠状态，这是“偶尔不行”的主因
-        body.sleepThreshold = 0f;
+        body.linearDamping = 0f;      // 显式消除线性阻尼
+        body.angularDamping = 0f;     // 显式消除旋转阻尼
+        body.jointFriction = 0f;      // 显式消除关节内部摩擦
+        body.sleepThreshold = 0f;     // 严禁进入睡眠
         
         var drive = body.xDrive;
         drive.stiffness = 0;
-        drive.damping = driveDamping;
+        drive.damping = driveDamping; 
         drive.forceLimit = driveForceLimit;
         body.xDrive = drive;
     }

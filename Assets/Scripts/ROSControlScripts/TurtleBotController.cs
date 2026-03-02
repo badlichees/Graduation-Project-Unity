@@ -1,6 +1,6 @@
 using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
-using RosMessageTypes.Geometry;
+using RosMessageTypes.Std;   // Float64Msg需要先生成
 
 public class TurtleBotController : MonoBehaviour
 {
@@ -8,7 +8,7 @@ public class TurtleBotController : MonoBehaviour
     public ArticulationBody wheelRightJoint;
 
     [Header("Robot Specs")]
-    public float wheelRadius = 0.033f;
+    public float wheelRadius = 0.033f; // 仅用于Debug显示，不参与计算
     public float wheelSeparation = 0.16f;
 
     [Header("Physics Tuning")]
@@ -19,24 +19,28 @@ public class TurtleBotController : MonoBehaviour
     public bool invertLeftWheel = false;
     public bool invertRightWheel = false;
 
-    private float targetLinearVel;
-    private float targetAngularVel;
+    private ROSConnection ros;
 
     void Start()
     {
         SetupWheel(wheelLeftJoint);
         SetupWheel(wheelRightJoint);
-        ROSConnection.GetOrCreateInstance().Subscribe<TwistMsg>("/cmd_vel", OnCmdVelReceived);
-        Debug.Log("ROS2 TurtleBot Controller Started.");
+        
+        ros = ROSConnection.GetOrCreateInstance();
+        ros.Subscribe<Float64Msg>("/left_wheel_vel", OnLeftWheelVelReceived);
+        ros.Subscribe<Float64Msg>("/right_wheel_vel", OnRightWheelVelReceived);
+        
+        Debug.Log("ROS2 差速控制器已连接，Unity仅负责执行");
     }
 
+    // 物理设置逻辑
     void SetupWheel(ArticulationBody body)
     {
         if (body == null) return;
-        body.linearDamping = 0f;      // 显式消除线性阻尼
-        body.angularDamping = 0f;     // 显式消除旋转阻尼
-        body.jointFriction = 0f;      // 显式消除关节内部摩擦
-        body.sleepThreshold = 0f;     // 严禁进入睡眠
+        body.linearDamping = 0f;
+        body.angularDamping = 0f;
+        body.jointFriction = 0f;
+        body.sleepThreshold = 0f;
         
         var drive = body.xDrive;
         drive.stiffness = 0;
@@ -45,43 +49,26 @@ public class TurtleBotController : MonoBehaviour
         body.xDrive = drive;
     }
 
-    void OnCmdVelReceived(TwistMsg msg)
+    void OnLeftWheelVelReceived(Float64Msg msg)
     {
-        // 如果通信通了，这行代码会疯狂在控制台刷屏，显示收到的速度
-        Debug.LogWarning($"收到ROS指令! Linear: {msg.linear.x}, Angular: {msg.angular.z}");
-        
-        targetLinearVel = (float)msg.linear.x;
-        targetAngularVel = (float)msg.angular.z;
+        float targetDegPerSec = (float)msg.data * Mathf.Rad2Deg;
+        if (invertLeftWheel) targetDegPerSec = -targetDegPerSec;
+        ApplyVelocity(wheelLeftJoint, targetDegPerSec);
     }
 
-    void FixedUpdate()
+    void OnRightWheelVelReceived(Float64Msg msg)
     {
-        if (wheelLeftJoint == null || wheelRightJoint == null) return;
-
-        // 差速解算
-        float leftRadPerSec = (targetLinearVel - targetAngularVel * wheelSeparation / 2f) / wheelRadius;
-        float rightRadPerSec = (targetLinearVel + targetAngularVel * wheelSeparation / 2f) / wheelRadius;
-
-        // 应用反转开关
-        float finalLeft = invertLeftWheel ? -leftRadPerSec : leftRadPerSec;
-        float finalRight = invertRightWheel ? -rightRadPerSec : rightRadPerSec;
-
-        ApplyVelocity(wheelLeftJoint, finalLeft * Mathf.Rad2Deg);
-        ApplyVelocity(wheelRightJoint, finalRight * Mathf.Rad2Deg);
-
-        // 每隔1秒在控制台输出一下当前的驱动数值，如果全是0说明没收到ROS消息
-        if (Time.frameCount % 50 == 0 && (targetLinearVel != 0 || targetAngularVel != 0))
-        {
-            Debug.Log($"Driving Wheels - Left: {finalLeft * Mathf.Rad2Deg:F0} deg/s, Right: {finalRight * Mathf.Rad2Deg:F0} deg/s");
-        }
+        float targetDegPerSec = (float)msg.data * Mathf.Rad2Deg;
+        if (invertRightWheel) targetDegPerSec = -targetDegPerSec;
+        ApplyVelocity(wheelRightJoint, targetDegPerSec);
     }
 
     void ApplyVelocity(ArticulationBody body, float targetDegPerSec)
     {
+        if (body == null) return;
         var drive = body.xDrive;
         drive.targetVelocity = targetDegPerSec;
         body.xDrive = drive;
-        // 强制唤醒物理引擎
         if (body.IsSleeping()) body.WakeUp();
     }
 }

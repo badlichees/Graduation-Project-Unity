@@ -12,7 +12,7 @@ public class TurtleBotController : MonoBehaviour
     public float wheelSeparation = 0.16f;
 
     [Header("Physics Tuning")]
-    public float driveDamping = 1000f; 
+    public float driveDamping = 1000f;
     public float driveForceLimit = 2000f;
 
     [Header("Direction Fix")]
@@ -44,7 +44,7 @@ public class TurtleBotController : MonoBehaviour
         
         var drive = body.xDrive;
         drive.stiffness = 0;
-        drive.damping = driveDamping; 
+        drive.damping = driveDamping;
         drive.forceLimit = driveForceLimit;
         body.xDrive = drive;
     }

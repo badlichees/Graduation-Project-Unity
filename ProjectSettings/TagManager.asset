@@ -5,11 +5,19 @@ TagManager:
   serializedVersion: 2
   tags:
   - robot
+  - WallPanel
+  - Skylight
+  - Floor
+  - Ceiling
+  - Shelf
+  - LightFixture
+  - Glulam
+  - FloorBoxes
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Robot
   - Water
   - UI
   - 

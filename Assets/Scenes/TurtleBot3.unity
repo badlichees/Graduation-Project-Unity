@@ -731,6 +731,104 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7e8ecfd17cd58c247916864b74797f3f, type: 3}
+--- !u!1 &1598164487
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1598164490}
+  - component: {fileID: 1598164489}
+  - component: {fileID: 1598164488}
+  - component: {fileID: 1598164491}
+  m_Layer: 0
+  m_Name: MapGenerator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1598164488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598164487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31cf89d02912dfb4cace48dddcd2656c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mapGenerator: {fileID: 1598164489}
+  generateOnStart: 0
+--- !u!114 &1598164489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598164487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d761bc124f9ce4e45b50cccc0b5da607, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maps:
+  - mapSize:
+      x: 10
+      y: 10
+    obstaclePercent: 0.2
+    seed: 123
+    minObstacleHeight: 0
+    maxObstacleHeight: 0
+    foregroundColour: {r: 0, g: 0, b: 0, a: 0}
+    backgroundColour: {r: 0, g: 0, b: 0, a: 0}
+  mapIndex: 0
+  tilePrefab: {fileID: 0}
+  obstaclePrefab: {fileID: 0}
+  mapFloor: {fileID: 0}
+  navmeshFloor: {fileID: 0}
+  navmeshMaskPrefab: {fileID: 0}
+  maxMapSize: {x: 0, y: 0}
+  outlinePercent: 0
+  tileSize: 1
+  generateOnStart: 0
+  instantiateObjects: 0
+--- !u!4 &1598164490
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598164487}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1598164491
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598164487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2056eeca5f39fbc4bbce1915fff84f33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /map
+  frameId: map
+  publishFrequency: 1
+  mapGenerator: {fileID: 1598164489}
+  autoUpdateOnStart: 1
 --- !u!4 &1975805391 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7253032877743872868, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
@@ -930,3 +1028,4 @@ SceneRoots:
   - {fileID: 2110014634}
   - {fileID: 488630434}
   - {fileID: 311404324556575216}
+  - {fileID: 1598164490}

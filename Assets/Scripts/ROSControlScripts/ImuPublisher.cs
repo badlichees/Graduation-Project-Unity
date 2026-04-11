@@ -60,6 +60,8 @@ public class ImuPublisher : MonoBehaviour
         imuMsg.header = header;
         // 方向四元数（初始化为单位四元数）
         imuMsg.orientation = new RosMessageTypes.Geometry.QuaternionMsg { x = 0, y = 0, z = 0, w = 1 };
+        // 方向协方差：[0]=-1 表示未提供可靠方向数据，Nav2/EKF 将忽略此字段
+        imuMsg.orientation_covariance = new double[9] { -1, 0, 0, 0, 0, 0, 0, 0, 0 };
         // 角速度协方差（-1表示未知）
         imuMsg.angular_velocity_covariance = new double[9] { -1, 0, 0, 0, 0, 0, 0, 0, 0 };
         // 线性加速度协方差（-1表示未知）

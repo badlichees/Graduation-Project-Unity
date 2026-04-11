@@ -187,6 +187,9 @@ public class OdometryPublisher : MonoBehaviour
 
     /// <summary>
     /// 直接物理反馈：从机器人的ArticulationBody读取当前位姿和速度
+    /// 坐标系转换：Unity(X右,Y上,Z前) → ROS(X前,Y左,Z上)
+    ///   位置: ros.x = unity.z, ros.y = -unity.x, ros.z = unity.y (地面机器人取0)
+    ///   四元数: 绕固定轴旋转 R = R_unity_to_ros * R_unity * R_unity_to_ros^-1
     /// </summary>
     void UpdateDirectPhysicsOdometry()
     {
@@ -196,22 +199,34 @@ public class OdometryPublisher : MonoBehaviour
         Vector3 worldPos = robotBase.transform.position;
         Quaternion worldRot = robotBase.transform.rotation;
 
-        // 将位姿转换到odom坐标系（假设odom坐标系与世界坐标系对齐）
-        pose.pose.position.x = worldPos.x;
-        pose.pose.position.y = worldPos.y;
-        pose.pose.position.z = worldPos.z;
-        pose.pose.orientation = worldRot.ToRosQuaternion();
+        // 位置：Unity(x,y,z) → ROS(z,-x,0)，地面机器人 Z 固定为0
+        pose.pose.position.x = worldPos.z;
+        pose.pose.position.y = -worldPos.x;
+        pose.pose.position.z = 0.0;
 
-        // 速度（世界坐标系下的线速度和角速度）
+        // 朝向：Unity绕Y轴旋转（偏航）→ ROS绕Z轴旋转
+        // 从Unity四元数提取偏航角，再构造ROS四元数
+        float yawUnity = worldRot.eulerAngles.y * Mathf.Deg2Rad; // Unity Y轴角
+        float yawROS = -yawUnity; // Unity Y轴顺时针 = ROS Z轴逆时针，方向取反
+        pose.pose.orientation = new RosMessageTypes.Geometry.QuaternionMsg
+        {
+            x = 0.0,
+            y = 0.0,
+            z = Math.Sin(yawROS * 0.5),
+            w = Math.Cos(yawROS * 0.5)
+        };
+
+        // 线速度：Unity(x,y,z) → ROS(z,-x,0)
         Vector3 linearVel = robotBase.velocity;
-        Vector3 angularVel = robotBase.angularVelocity;
+        twist.twist.linear.x = linearVel.z;
+        twist.twist.linear.y = -linearVel.x;
+        twist.twist.linear.z = 0.0;
 
-        twist.twist.linear.x = linearVel.x;
-        twist.twist.linear.y = linearVel.y;
-        twist.twist.linear.z = linearVel.z;
-        twist.twist.angular.x = angularVel.x;
-        twist.twist.angular.y = angularVel.y;
-        twist.twist.angular.z = angularVel.z;
+        // 角速度：Unity绕Y轴(偏航) → ROS绕Z轴，方向取反
+        Vector3 angularVel = robotBase.angularVelocity;
+        twist.twist.angular.x = 0.0;
+        twist.twist.angular.y = 0.0;
+        twist.twist.angular.z = -angularVel.y;
     }
 
     /// <summary>

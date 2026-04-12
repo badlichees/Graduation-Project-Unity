@@ -22,7 +22,7 @@ using RobotSimulation.MapGeneration;
 public class OccupancyGridPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
-    public string topicName = "/map";
+    public string topicName = "/map_raw"; // map_relay 节点会将其转发为 transient_local 的 /map
     public string frameId = "map";
     [Range(0.1f, 10f)]
     public float publishFrequency = 1.0f; // Hz，静态地图 1Hz 足够

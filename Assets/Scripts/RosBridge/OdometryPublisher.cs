@@ -205,9 +205,13 @@ public class OdometryPublisher : MonoBehaviour
         pose.pose.position.z = 0.0;
 
         // 朝向：Unity绕Y轴旋转（偏航）→ ROS绕Z轴旋转
-        // 从Unity四元数提取偏航角，再构造ROS四元数
-        float yawUnity = worldRot.eulerAngles.y * Mathf.Deg2Rad; // Unity Y轴角
-        float yawROS = -yawUnity; // Unity Y轴顺时针 = ROS Z轴逆时针，方向取反
+        // 直接从四元数提取偏航角，避免 eulerAngles.y [0,360] 的不连续跳变
+        // 公式：yaw = atan2(2*(xz + wy), 1 - 2*(x² + y²))，结果域 (-π, π]
+        float yawUnity = Mathf.Atan2(
+            2f * (worldRot.x * worldRot.z + worldRot.w * worldRot.y),
+            1f - 2f * (worldRot.x * worldRot.x + worldRot.y * worldRot.y)
+        );
+        float yawROS = -yawUnity; // Unity Y顺时针 = ROS Z逆时针，方向取反
         pose.pose.orientation = new RosMessageTypes.Geometry.QuaternionMsg
         {
             x = 0.0,

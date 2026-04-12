@@ -743,6 +743,7 @@ GameObject:
   - component: {fileID: 1598164489}
   - component: {fileID: 1598164488}
   - component: {fileID: 1598164491}
+  - component: {fileID: 1598164492}
   m_Layer: 0
   m_Name: MapGenerator
   m_TagString: Untagged
@@ -778,25 +779,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maps:
   - mapSize:
-      x: 10
-      y: 10
-    obstaclePercent: 0.2
-    seed: 123
-    minObstacleHeight: 0
-    maxObstacleHeight: 0
-    foregroundColour: {r: 0, g: 0, b: 0, a: 0}
-    backgroundColour: {r: 0, g: 0, b: 0, a: 0}
+      x: 30
+      y: 30
+    obstaclePercent: 0.3
+    seed: 0
+    minObstacleHeight: 0.3
+    maxObstacleHeight: 0.5
+    foregroundColour: {r: 0.8867924, g: 0.4065859, b: 0.4065859, a: 0}
+    backgroundColour: {r: 0.3962264, g: 0.023175487, b: 0.023175487, a: 0}
   mapIndex: 0
-  tilePrefab: {fileID: 0}
-  obstaclePrefab: {fileID: 0}
-  mapFloor: {fileID: 0}
-  navmeshFloor: {fileID: 0}
-  navmeshMaskPrefab: {fileID: 0}
-  maxMapSize: {x: 0, y: 0}
+  tilePrefab: {fileID: 455618, guid: d66012bc21821f34fa2aa69ed06c0d0b, type: 3}
+  obstaclePrefab: {fileID: 461822, guid: 7d5b8f1bd4e98ef4e96a70b49327a575, type: 3}
   outlinePercent: 0
-  tileSize: 1
-  generateOnStart: 0
-  instantiateObjects: 0
+  tileSize: 0.5
+  generateOnStart: 1
+  instantiateObjects: 1
 --- !u!4 &1598164490
 Transform:
   m_ObjectHideFlags: 0
@@ -824,11 +821,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2056eeca5f39fbc4bbce1915fff84f33, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /map
+  topicName: /map_raw
   frameId: map
   publishFrequency: 1
   mapGenerator: {fileID: 1598164489}
   autoUpdateOnStart: 1
+--- !u!114 &1598164492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598164487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1d1ae17490544541a19701a2150bd51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /goal_pose
+  frameId: map
+  robotTransform: {fileID: 1975805391}
+  markerRadius: 0.12
 --- !u!4 &1975805391 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7253032877743872868, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}

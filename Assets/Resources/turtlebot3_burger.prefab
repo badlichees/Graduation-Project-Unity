@@ -358,8 +358,13 @@ MonoBehaviour:
   wheelSeparation: 0.16
   driveDamping: 10000
   driveForceLimit: 1000
+  invertAngular: 0
+  invertLinear: 0
   invertLeftWheel: 0
   invertRightWheel: 0
+  cmdVelTopic: /cmd_vel
+  enableDebugLogs: 0
+  debugLogInterval: 0.5
 --- !u!1 &472739790513660226
 GameObject:
   m_ObjectHideFlags: 0
@@ -1235,7 +1240,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   topicName: /odom
   publishFrequency: 30
-  source: 0
+  source: 1
   wheelLeftJoint: {fileID: 83793130571139298}
   wheelRightJoint: {fileID: 3150923246269823195}
   robotBase: {fileID: 7515763102655295910}
@@ -1243,6 +1248,8 @@ MonoBehaviour:
   wheelSeparation: 0.16
   odomFrameId: odom
   baseFrameId: base_footprint
+  enableDebugLogs: 0
+  debugLogInterval: 0.5
 --- !u!114 &3275239448332539161
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3177,7 +3184,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   topicName: /imu
-  publishFrequency: 100
+  publishFrequency: 30
   imuLink: {fileID: 0}
   frameId: imu_link
   addNoise: 0

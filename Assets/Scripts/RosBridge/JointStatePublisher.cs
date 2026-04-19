@@ -6,15 +6,15 @@ using RosMessageTypes.BuiltinInterfaces;
 using System;
 
 /// <summary>
-/// 发布TurtleBot3的关节状态（/joint_states）到ROS2
-/// 收集左右轮的转角（弧度）和角速度（弧度/秒），并按照URDF中的关节名称发布
-/// 与ROS2的robot_state_publisher节点配合，由后者生成TF树
+/// 发布轮子关节状态。
 /// </summary>
 public class JointStatePublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
     public string topicName = "/joint_states";
-    public float publishFrequency = 30.0f; // Hz
+    public float publishFrequency = 30.0f;
+    [Min(1)]
+    public int publisherQueueSize = 100;
 
     [Header("Wheel Joints")]
     public ArticulationBody wheelLeftJoint;
@@ -29,31 +29,25 @@ public class JointStatePublisher : MonoBehaviour
     private JointStateMsg jointStateMsg;
     private HeaderMsg header;
 
-    // 用于计算角速度的上一次角度
     private float lastLeftAngle = 0.0f;
     private float lastRightAngle = 0.0f;
     private bool firstUpdate = true;
 
     void Start()
     {
-        // 初始化ROS连接
         ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<JointStateMsg>(topicName);
+        ros.RegisterPublisher<JointStateMsg>(topicName, publisherQueueSize);
 
-        // 初始化消息结构
         header = new HeaderMsg();
-        header.frame_id = ""; // joint_states的header通常为空
+        header.frame_id = "";
 
         jointStateMsg = new JointStateMsg();
         jointStateMsg.header = header;
-        // 关节名称数组（顺序与位置、速度数组对应）
         jointStateMsg.name = new string[] { leftWheelJointName, rightWheelJointName };
-        // 预分配数组
         jointStateMsg.position = new double[2];
         jointStateMsg.velocity = new double[2];
-        jointStateMsg.effort = new double[0]; // 不发布effort
+        jointStateMsg.effort = new double[0];
 
-        // 获取初始角度
         if (wheelLeftJoint != null)
             lastLeftAngle = GetWheelAngle(wheelLeftJoint);
         if (wheelRightJoint != null)
@@ -76,11 +70,10 @@ public class JointStatePublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 更新关节状态数据
+    /// 更新关节数据。
     /// </summary>
     void UpdateJointStates()
     {
-        // 更新时间戳
         var now = DateTime.UtcNow;
         var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var timeSpan = now - epoch;
@@ -91,14 +84,12 @@ public class JointStatePublisher : MonoBehaviour
         float leftAngle = GetWheelAngle(wheelLeftJoint);
         float rightAngle = GetWheelAngle(wheelRightJoint);
 
-        // 计算角速度（弧度/秒）
         float dt = 1.0f / publishFrequency;
         float leftVel = 0.0f;
         float rightVel = 0.0f;
 
         if (!firstUpdate)
         {
-            // 使用角度差除以时间，注意处理角度环绕
             leftVel = Mathf.DeltaAngle(lastLeftAngle * Mathf.Rad2Deg, leftAngle * Mathf.Rad2Deg) * Mathf.Deg2Rad / dt;
             rightVel = Mathf.DeltaAngle(lastRightAngle * Mathf.Rad2Deg, rightAngle * Mathf.Rad2Deg) * Mathf.Deg2Rad / dt;
         }
@@ -117,8 +108,7 @@ public class JointStatePublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 获取轮子关节的当前角度（弧度）
-    /// ArticulationBody的jointPosition属性可能直接返回弧度，但需要根据关节类型确认
+    /// 读取轮子角度。
     /// </summary>
     float GetWheelAngle(ArticulationBody wheel)
     {
@@ -129,16 +119,13 @@ public class JointStatePublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 发布关节状态消息到ROS
+    /// 发布关节状态。
     /// </summary>
     void PublishJointStates()
     {
         ros.Publish(topicName, jointStateMsg);
     }
 
-    /// <summary>
-    /// 在Inspector中重置关节名称到默认值
-    /// </summary>
     void Reset()
     {
         leftWheelJointName = "wheel_left_joint";

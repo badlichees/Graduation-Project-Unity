@@ -779,8 +779,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maps:
   - mapSize:
-      x: 30
-      y: 30
+      x: 31
+      y: 31
     obstaclePercent: 0.3
     seed: 0
     minObstacleHeight: 0.3
@@ -826,6 +826,7 @@ MonoBehaviour:
   publishFrequency: 1
   mapGenerator: {fileID: 1598164489}
   autoUpdateOnStart: 1
+  rosCellSize: 0.1
 --- !u!114 &1598164492
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -840,7 +841,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   topicName: /goal_pose
   frameId: map
+  publisherQueueSize: 10
   robotTransform: {fileID: 1975805391}
+  mapGenerator: {fileID: 1598164489}
+  maxSnapSearchRadius: 8
+  goalClearanceRadiusTiles: 1
+  autoPublishTestGoal: 0
+  testGoalDistance: 2
+  autoPublishDelay: 30
   markerRadius: 0.12
 --- !u!4 &1975805391 stripped
 Transform:
@@ -973,6 +981,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 83793130571139298, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: m_ParentAnchorPosition.x
+      value: -0.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 169314662687658461, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: source
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 468421244958994552, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: m_ParentAnchorPosition.z
+      value: -0.081
+      objectReference: {fileID: 0}
     - target: {fileID: 1372800465437163967, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1011,6 +1031,26 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1372800465437163967, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2039763512408789420, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: m_ParentAnchorPosition.z
+      value: -0.032
+      objectReference: {fileID: 0}
+    - target: {fileID: 2933486896839643502, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: m_ParentAnchorPosition.z
+      value: -0.032
+      objectReference: {fileID: 0}
+    - target: {fileID: 3150923246269823195, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: m_ParentAnchorPosition.x
+      value: 0.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 3767293871212188819, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: invertLinear
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3767293871212188819, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      propertyPath: invertAngular
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6759758354063372411, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}

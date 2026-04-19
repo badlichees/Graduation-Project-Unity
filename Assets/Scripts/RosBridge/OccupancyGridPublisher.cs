@@ -8,31 +8,27 @@ using System;
 using RobotSimulation.MapGeneration;
 
 /// <summary>
-/// 将 MapGenerator 生成的占用栅格地图发布到 ROS2 的 /map 话题（nav_msgs/OccupancyGrid）。
-///
-/// 坐标系转换：Unity(X右, Y上, Z前) → ROS(X前, Y左, Z上)
-///   ROS width  方向 = Unity Z 方向（mapSize.y 个格子）
-///   ROS height 方向 = Unity -X 方向（mapSize.x 个格子，Y轴取反）
-///
-/// 数据映射：Unity 格子 (gx, gy) → ROS 线性索引 = (unityW-1-gx)*width + gy
-/// 地图原点（cell 0,0 左下角）：
-///   ros_x = -mapSize.y/2 * tileSize
-///   ros_y = -mapSize.x/2 * tileSize
+/// 发布测试地图到 ROS2。
 /// </summary>
 public class OccupancyGridPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
-    public string topicName = "/map_raw"; // map_relay 节点会将其转发为 transient_local 的 /map
+    public string topicName = "/map_raw";
     public string frameId = "map";
     [Range(0.1f, 10f)]
-    public float publishFrequency = 1.0f; // Hz，静态地图 1Hz 足够
+    public float publishFrequency = 1.0f;
+    [Min(1)]
+    public int publisherQueueSize = 10;
 
     [Header("Map Source")]
     public MapGenerator mapGenerator;
 
     [Header("Options")]
-    [Tooltip("Start() 结束后自动读取 MapGenerator 数据（需要 MapGenerator.generateOnStart = true）")]
+    [Tooltip("启动时自动读取地图。")]
     public bool autoUpdateOnStart = true;
+    [Tooltip("发布到 ROS 的栅格分辨率。")]
+    [Min(0.01f)]
+    public float rosCellSize = 0.1f;
 
     private ROSConnection ros;
     private float timeElapsed;
@@ -42,7 +38,7 @@ public class OccupancyGridPublisher : MonoBehaviour
     void Start()
     {
         ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<OccupancyGridMsg>(topicName);
+        ros.RegisterPublisher<OccupancyGridMsg>(topicName, publisherQueueSize);
 
         if (mapGenerator == null)
             mapGenerator = GetComponent<MapGenerator>();
@@ -54,14 +50,10 @@ public class OccupancyGridPublisher : MonoBehaviour
             return;
         }
 
-        // 订阅地图生成事件，每次 GenerateMap() 完成后自动刷新
         mapGenerator.OnMapGenerated += UpdateMap;
 
         if (autoUpdateOnStart && mapGenerator.GeneratedObstacleMap != null)
-        {
-            // MapGenerator 在 Awake 或更早已生成好地图时直接使用
             UpdateMap();
-        }
     }
 
     void OnDestroy()
@@ -83,8 +75,7 @@ public class OccupancyGridPublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 从 MapGenerator 读取最新障碍物数据并构建 OccupancyGridMsg。
-    /// 在 MapGenerator.GenerateMap() 完成后调用此方法。
+    /// 刷新地图消息。
     /// </summary>
     public void UpdateMap()
     {
@@ -95,31 +86,39 @@ public class OccupancyGridPublisher : MonoBehaviour
             return;
         }
 
-        int unityW = mapGenerator.MapSize.x; // Unity X 方向格子数
-        int unityH = mapGenerator.MapSize.y; // Unity Z 方向格子数
-        float res   = mapGenerator.tileSize;
+        int unityW = mapGenerator.MapSize.x;
+        int unityH = mapGenerator.MapSize.y;
+        float tileSize = mapGenerator.tileSize;
+        int cellsPerTile = Mathf.Max(1, Mathf.RoundToInt(tileSize / Mathf.Max(rosCellSize, 0.01f)));
+        float res = tileSize / cellsPerTile;
 
-        // ROS 地图尺寸（见文件头注释）
-        uint rosWidth  = (uint)unityH; // ROS X = Unity Z
-        uint rosHeight = (uint)unityW; // ROS Y = -Unity X（取反）
+        uint rosWidth  = (uint)(unityH * cellsPerTile);
+        uint rosHeight = (uint)(unityW * cellsPerTile);
 
-        // 地图原点（OccupancyGrid cell(0,0) 的左下角，ROS 坐标）
-        double originX = -unityH / 2.0 * res;
-        double originY = -unityW / 2.0 * res;
+        double originX = -unityH * tileSize / 2.0;
+        double originY = -unityW * tileSize / 2.0;
 
-        // 数据填充：Unity(gx, gy) → ROS index = (unityW-1-gx)*rosWidth + gy
         sbyte[] data = new sbyte[rosWidth * rosHeight];
         for (int gx = 0; gx < unityW; gx++)
         {
-            int ry = unityW - 1 - gx;
             for (int gy = 0; gy < unityH; gy++)
             {
-                int idx = ry * (int)rosWidth + gy;
-                data[idx] = obstacleMap[gx, gy] ? (sbyte)100 : (sbyte)0;
+                sbyte cellValue = obstacleMap[gx, gy] ? (sbyte)100 : (sbyte)0;
+
+                for (int subX = 0; subX < cellsPerTile; subX++)
+                {
+                    int ry = (unityW - 1 - gx) * cellsPerTile + subX;
+                    int rowStart = ry * (int)rosWidth;
+
+                    for (int subY = 0; subY < cellsPerTile; subY++)
+                    {
+                        int rx = gy * cellsPerTile + subY;
+                        data[rowStart + rx] = cellValue;
+                    }
+                }
             }
         }
 
-        // 构建消息
         var stamp = MakeStamp();
         cachedMsg = new OccupancyGridMsg
         {
@@ -141,17 +140,16 @@ public class OccupancyGridPublisher : MonoBehaviour
 
         hasMap = true;
         Debug.Log($"OccupancyGridPublisher: 地图已构建 " +
-                  $"[ROS {rosWidth}×{rosHeight}，分辨率={res}m，" +
+                  $"[ROS {rosWidth}×{rosHeight}，分辨率={res}m，cellsPerTile={cellsPerTile}，" +
                   $"原点=({originX:F2}, {originY:F2})]");
 
-        // 立即发布一次，不等下次 Update 定时
         PublishMap();
     }
 
     void PublishMap()
     {
         if (cachedMsg == null) return;
-        cachedMsg.header.stamp = MakeStamp(); // 刷新时间戳
+        cachedMsg.header.stamp = MakeStamp();
         ros.Publish(topicName, cachedMsg);
     }
 
@@ -172,7 +170,6 @@ public class OccupancyGridPublisher : MonoBehaviour
         if (size.x == 0 || size.y == 0) return;
         float res = mapGenerator.tileSize;
         Gizmos.color = Color.cyan;
-        // 在场景视图中绘制地图边界（Unity 坐标，XZ 平面）
         Gizmos.DrawWireCube(Vector3.zero,
             new Vector3(size.x * res, 0.05f, size.y * res));
     }

@@ -3,19 +3,7 @@ using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Geometry;
 
 /// <summary>
-/// 订阅 Nav2（或 teleop）发布的 /cmd_vel（geometry_msgs/Twist），
-/// 在 Unity 侧完成差速运动学解算，直接驱动左右轮 ArticulationBody。
-///
-/// 差速解算（标准公式）：
-///   left_ω  = (v - ω_z * d/2) / r
-///   right_ω = (v + ω_z * d/2) / r
-///   v   = cmd_vel.linear.x（m/s）
-///   ω_z = cmd_vel.angular.z（rad/s，ROS 正方向 = 逆时针 = 左转）
-///   d   = wheelSeparation（轮距，m）
-///   r   = wheelRadius（轮半径，m）
-///
-/// 若机器人旋转方向与预期相反，先尝试勾选 invertAngular；
-/// 若前进/后退方向反，勾选 invertLinear。
+/// 接收 /cmd_vel 并驱动机器人底盘。
 /// </summary>
 public class TurtleBotController : MonoBehaviour
 {
@@ -32,17 +20,26 @@ public class TurtleBotController : MonoBehaviour
     public float driveForceLimit = 2000f;
 
     [Header("Direction Fix")]
-    [Tooltip("若机器人旋转方向反了（转圈），勾选此项")]
+    [Tooltip("旋转方向反时启用。")]
     public bool invertAngular = false;
-    [Tooltip("若机器人前进/后退方向反了，勾选此项")]
+    [Tooltip("前进方向反时启用。")]
     public bool invertLinear  = false;
+    [Tooltip("左轮方向反时启用。")]
+    public bool invertLeftWheel = false;
+    [Tooltip("右轮方向反时启用。")]
+    public bool invertRightWheel = false;
 
     [Header("ROS Settings")]
     public string cmdVelTopic = "/cmd_vel";
 
-    private ROSConnection ros;
+    [Header("Debug")]
+    [Tooltip("输出控制调试日志。")]
+    public bool enableDebugLogs = false;
+    [Min(0.1f)]
+    public float debugLogInterval = 0.5f;
 
-    // ── Unity 生命周期 ────────────────────────────────────────────────────────
+    private ROSConnection ros;
+    private float nextDebugLogTime;
 
     void Start()
     {
@@ -55,22 +52,22 @@ public class TurtleBotController : MonoBehaviour
         Debug.Log($"TurtleBotController: 已订阅 {cmdVelTopic}，直接处理 cmd_vel");
     }
 
-    // ── 回调：差速解算并驱动轮子 ─────────────────────────────────────────────
-
     void OnCmdVelReceived(TwistMsg msg)
     {
         float linear  = (float)msg.linear.x  * (invertLinear  ? -1f : 1f);
         float angular = (float)msg.angular.z * (invertAngular ? -1f : 1f);
 
-        // 标准差速运动学
         float leftRadPS  = (linear - angular * wheelSeparation * 0.5f) / wheelRadius;
         float rightRadPS = (linear + angular * wheelSeparation * 0.5f) / wheelRadius;
 
+        if (invertLeftWheel) leftRadPS = -leftRadPS;
+        if (invertRightWheel) rightRadPS = -rightRadPS;
+
         ApplyVelocity(wheelLeftJoint,  leftRadPS  * Mathf.Rad2Deg);
         ApplyVelocity(wheelRightJoint, rightRadPS * Mathf.Rad2Deg);
-    }
 
-    // ── 工具方法 ─────────────────────────────────────────────────────────────
+        MaybeLogCommand(linear, angular, leftRadPS, rightRadPS);
+    }
 
     void SetupWheel(ArticulationBody body)
     {
@@ -94,5 +91,18 @@ public class TurtleBotController : MonoBehaviour
         drive.targetVelocity = targetDegPerSec;
         body.xDrive = drive;
         if (body.IsSleeping()) body.WakeUp();
+    }
+
+    void MaybeLogCommand(float linear, float angular, float leftRadPS, float rightRadPS)
+    {
+        if (!enableDebugLogs || Time.time < nextDebugLogTime) return;
+
+        nextDebugLogTime = Time.time + debugLogInterval;
+        Debug.Log(
+            $"TurtleBotController cmd_vel: linear={linear:F3} m/s, angular={angular:F3} rad/s, " +
+            $"left={leftRadPS:F3} rad/s, right={rightRadPS:F3} rad/s, " +
+            $"invertLinear={invertLinear}, invertAngular={invertAngular}, " +
+            $"invertLeftWheel={invertLeftWheel}, invertRightWheel={invertRightWheel}"
+        );
     }
 }

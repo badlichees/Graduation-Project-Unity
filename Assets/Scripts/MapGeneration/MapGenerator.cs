@@ -117,10 +117,7 @@ namespace RobotSimulation.MapGeneration
         }
     }
 
-    /// <summary>
-    /// 基于网格的地图生成器，适配自射击游戏项目
-    /// 移除游戏事件依赖，专注于生成网格数据与可视化
-    /// </summary>
+    /// <summary>基于网格的程序化地图生成器。</summary>
     public class MapGenerator : MonoBehaviour
     {
         #region 公共字段
@@ -390,6 +387,89 @@ namespace RobotSimulation.MapGeneration
             x = Mathf.Clamp(x, 0, MapSize.x - 1);
             y = Mathf.Clamp(y, 0, MapSize.y - 1);
             return new Coord(x, y);
+        }
+
+        /// <summary>
+        /// 判断网格是否在地图内且不是障碍物。
+        /// </summary>
+        public bool IsOpenTile(Coord gridCoord)
+        {
+            if (GeneratedObstacleMap == null)
+                return false;
+
+            if (gridCoord.x < 0 || gridCoord.x >= MapSize.x || gridCoord.y < 0 || gridCoord.y >= MapSize.y)
+                return false;
+
+            return !GeneratedObstacleMap[gridCoord.x, gridCoord.y];
+        }
+
+        /// <summary>
+        /// 判断格子是否可作为导航目标使用。
+        /// clearanceRadiusTiles > 0 时，要求周围若干格内都没有障碍物。
+        /// </summary>
+        public bool IsGoalNavigableTile(Coord gridCoord, int clearanceRadiusTiles = 0)
+        {
+            if (!IsOpenTile(gridCoord))
+                return false;
+
+            for (int dx = -clearanceRadiusTiles; dx <= clearanceRadiusTiles; dx++)
+            {
+                for (int dy = -clearanceRadiusTiles; dy <= clearanceRadiusTiles; dy++)
+                {
+                    Coord candidate = new Coord(gridCoord.x + dx, gridCoord.y + dy);
+                    if (!IsOpenTile(candidate))
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 从给定网格开始，搜索最近的可通行格子。
+        /// </summary>
+        public bool TryFindNearestOpenTile(
+            Coord start,
+            out Coord result,
+            int maxSearchRadius = 8,
+            int clearanceRadiusTiles = 0)
+        {
+            result = start;
+
+            if (GeneratedObstacleMap == null || MapSize.x == 0 || MapSize.y == 0)
+                return false;
+
+            Coord clampedStart = new Coord(
+                Mathf.Clamp(start.x, 0, MapSize.x - 1),
+                Mathf.Clamp(start.y, 0, MapSize.y - 1)
+            );
+
+            if (IsGoalNavigableTile(clampedStart, clearanceRadiusTiles))
+            {
+                result = clampedStart;
+                return true;
+            }
+
+            for (int radius = 1; radius <= maxSearchRadius; radius++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    for (int dy = -radius; dy <= radius; dy++)
+                    {
+                        if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) != radius)
+                            continue;
+
+                        Coord candidate = new Coord(clampedStart.x + dx, clampedStart.y + dy);
+                        if (IsGoalNavigableTile(candidate, clearanceRadiusTiles))
+                        {
+                            result = candidate;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
         
         /// <summary>

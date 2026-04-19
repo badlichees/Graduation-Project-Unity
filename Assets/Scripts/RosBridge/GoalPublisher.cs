@@ -5,56 +5,80 @@ using RosMessageTypes.Geometry;
 using RosMessageTypes.Std;
 using RosMessageTypes.BuiltinInterfaces;
 using System;
+using RobotSimulation.MapGeneration;
 
-/// <summary>
-/// 鼠标左键点击地图地面，将点击位置作为导航目标点发布到 ROS2 /goal_pose 话题。
-///
-/// 坐标系转换（与 OdometryPublisher 一致）：
-///   Unity(X右, Y上, Z前) → ROS(X前, Y左, Z上)
-///   ros.x = unity.z，ros.y = -unity.x
-///
-/// 目标朝向：机器人当前位置指向目标点的方向（便于 Nav2 以目标姿态抵达）。
-/// 若未指定机器人引用，朝向默认为 ROS 坐标系正前方（yaw = 0）。
-///
-/// 用法：
-///   将此组件挂载到场景中任意常驻 GameObject（如 ROS 管理对象）。
-///   在 Inspector 中拖入 robotTransform（机器人根节点）。
-/// </summary>
+/// <summary>发布 Nav2 目标点。</summary>
 public class GoalPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
     public string topicName = "/goal_pose";
     public string frameId = "map";
+    [Min(1)]
+    public int publisherQueueSize = 10;
 
     [Header("Robot Reference")]
-    [Tooltip("机器人根 Transform，用于计算目标朝向。留空则朝向默认为正前方（yaw=0）。")]
     public Transform robotTransform;
 
+    [Header("Goal Input")]
+    [Tooltip("目标点 Unity 世界系 (X, Z)，单位米。")]
+    public Vector2 targetPositionXZ = Vector2.zero;
+    public KeyCode publishKey = KeyCode.Space;
+    public bool allowMouseClick = false;
+
+    [Header("Map Assistance")]
+    public MapGenerator mapGenerator;
+    [Min(0)] public int maxSnapSearchRadius = 8;
+    [Min(0)] public int goalClearanceRadiusTiles = 1;
+
+    [Header("Test")]
+    public bool autoPublishTestGoal = false;
+    public float testGoalDistance = 2.0f;
+    [Min(0f)] public float autoPublishDelay = 2.0f;
+
     [Header("Visual Marker")]
-    [Tooltip("红色目标点指示器的半径（米）")]
     [Range(0.05f, 0.5f)]
     public float markerRadius = 0.12f;
 
     private ROSConnection ros;
     private GameObject goalMarker;
     private bool markerReady = false;
-
-    // ── Unity 生命周期 ───────────────────────────────────────────────────────
+    private bool debugGoalPublished = false;
+    private Vector2 lastPreviewedXZ = new Vector2(float.NaN, float.NaN);
+    private Vector3 currentGoalPoint;
+    private bool hasGoalPoint = false;
 
     void Start()
     {
         ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<PoseStampedMsg>(topicName);
+        ros.RegisterPublisher<PoseStampedMsg>(topicName, publisherQueueSize);
+
+        if (mapGenerator == null)
+            mapGenerator = FindFirstObjectByType<MapGenerator>();
 
         CreateMarker();
-        Debug.Log($"GoalPublisher: 已启动，点击地面发布目标到 {topicName}");
+
+        if (mapGenerator != null)
+            mapGenerator.OnMapGenerated += RefreshTargetPreview;
+
+        if (mapGenerator == null || mapGenerator.GeneratedObstacleMap != null)
+            RefreshTargetPreview();
+
+        Debug.Log($"GoalPublisher: 已启动，按 [{publishKey}] 发布目标至 {topicName}" +
+                  (allowMouseClick ? "，鼠标左键点击地面亦可发布" : ""));
     }
 
     void Update()
     {
-        if (!Input.GetMouseButtonDown(0)) return;
+        HandleAutoTestGoal();
 
-        // 防止点击穿透 UI
+        if (targetPositionXZ != lastPreviewedXZ)
+            RefreshTargetPreview();
+
+        if (Input.GetKeyDown(publishKey) && hasGoalPoint)
+            PublishGoalPoint(currentGoalPoint, "inspector");
+
+        if (!allowMouseClick || !Input.GetMouseButtonDown(0)) return;
+
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
         TryPublishGoal();
@@ -62,11 +86,20 @@ public class GoalPublisher : MonoBehaviour
 
     void OnDestroy()
     {
+        if (mapGenerator != null)
+            mapGenerator.OnMapGenerated -= RefreshTargetPreview;
         if (goalMarker != null)
             Destroy(goalMarker);
     }
 
-    // ── 核心逻辑 ─────────────────────────────────────────────────────────────
+    void RefreshTargetPreview()
+    {
+        Vector3 desired = new Vector3(targetPositionXZ.x, 0f, targetPositionXZ.y);
+        currentGoalPoint = SnapGoalToNearestOpenCell(desired);
+        MoveMarker(currentGoalPoint);
+        lastPreviewedXZ = targetPositionXZ;
+        hasGoalPoint = true;
+    }
 
     void TryPublishGoal()
     {
@@ -78,11 +111,10 @@ public class GoalPublisher : MonoBehaviour
 
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
-        // 与 y=0 平面求交（地图地面均位于 Unity y=0）
-        if (Mathf.Abs(ray.direction.y) < 1e-6f) return; // 射线平行于地面
+        if (Mathf.Abs(ray.direction.y) < 1e-6f) return;
 
         float t = -ray.origin.y / ray.direction.y;
-        if (t < 0f) return; // 交点在相机背后
+        if (t < 0f) return;
 
         Vector3 hitPoint = new Vector3(
             ray.origin.x + t * ray.direction.x,
@@ -90,23 +122,53 @@ public class GoalPublisher : MonoBehaviour
             ray.origin.z + t * ray.direction.z
         );
 
-        // 更新红点位置
-        MoveMarker(hitPoint);
+        Vector3 goalPoint = SnapGoalToNearestOpenCell(hitPoint);
 
-        // Unity → ROS 坐标转换
-        double rosX = hitPoint.z;
-        double rosY = -hitPoint.x;
+        PublishGoalPoint(goalPoint, "mouse");
+    }
 
-        // 计算目标朝向（ROS yaw）
-        double yawROS = ComputeGoalYawROS(hitPoint);
+    Vector3 SnapGoalToNearestOpenCell(Vector3 hitPoint)
+    {
+        if (mapGenerator == null || mapGenerator.GeneratedObstacleMap == null)
+            return hitPoint;
 
-        // 构建并发布消息
+        Coord clickedGrid = mapGenerator.WorldToGrid(hitPoint);
+        if (!mapGenerator.TryFindNearestOpenTile(
+            clickedGrid,
+            out Coord snappedGrid,
+            maxSnapSearchRadius,
+            goalClearanceRadiusTiles))
+        {
+            Debug.LogWarning(
+                $"GoalPublisher: 未能在半径 {maxSnapSearchRadius} 内找到满足净空要求的可达格，使用原始点击点。");
+            return hitPoint;
+        }
+
+        if (snappedGrid == clickedGrid)
+            return hitPoint;
+
+        Vector3 snappedWorld = mapGenerator.GridToWorld(snappedGrid);
+        Debug.Log(
+            $"GoalPublisher: 点击点落在障碍格附近，目标已吸附到最近空闲格 " +
+            $"{clickedGrid} -> {snappedGrid}，净空半径={goalClearanceRadiusTiles}，" +
+            $"Unity({snappedWorld.x:F2}, {snappedWorld.z:F2})");
+        return snappedWorld;
+    }
+
+    void PublishGoalPoint(Vector3 goalPoint, string sourceLabel)
+    {
+        MoveMarker(goalPoint);
+
+        double rosX = goalPoint.z;
+        double rosY = -goalPoint.x;
+        double yawROS = ComputeGoalYawROS(goalPoint);
+
         var stamp = MakeStamp();
         var msg = new PoseStampedMsg
         {
             header = new HeaderMsg
             {
-                stamp    = stamp,
+                stamp = stamp,
                 frame_id = frameId
             },
             pose = new PoseMsg
@@ -123,47 +185,56 @@ public class GoalPublisher : MonoBehaviour
         };
 
         ros.Publish(topicName, msg);
-        Debug.Log($"GoalPublisher: 目标已发布 " +
-                  $"Unity({hitPoint.x:F2}, {hitPoint.z:F2}) → " +
-                  $"ROS({rosX:F2}, {rosY:F2})，yaw={yawROS * Mathf.Rad2Deg:F1}°");
+        Debug.Log(
+            $"GoalPublisher: [{sourceLabel}] 目标已发布 " +
+            $"Unity({goalPoint.x:F2}, {goalPoint.z:F2}) -> ROS({rosX:F2}, {rosY:F2}), " +
+            $"yaw={yawROS * Mathf.Rad2Deg:F1}°");
     }
 
-    /// <summary>
-    /// 计算目标朝向：从机器人位置指向目标点，转换为 ROS yaw（绕 Z 轴）。
-    /// </summary>
+    void HandleAutoTestGoal()
+    {
+        if (!autoPublishTestGoal || debugGoalPublished || robotTransform == null)
+            return;
+
+        if (Time.time < autoPublishDelay)
+            return;
+
+        PublishRelativeTestGoal(testGoalDistance, "auto-test");
+        debugGoalPublished = true;
+    }
+
+    void PublishRelativeTestGoal(float forwardDistance, string sourceLabel)
+    {
+        Vector3 desiredPoint = robotTransform.position + robotTransform.forward * forwardDistance;
+        desiredPoint.y = 0f;
+        Vector3 snappedPoint = SnapGoalToNearestOpenCell(desiredPoint);
+        PublishGoalPoint(snappedPoint, sourceLabel);
+    }
+
     double ComputeGoalYawROS(Vector3 goalUnity)
     {
-        if (robotTransform == null) return 0.0;
+        if (robotTransform == null)
+            return 0.0;
 
         Vector3 dir = goalUnity - robotTransform.position;
-        if (dir.sqrMagnitude < 1e-4f) return 0.0; // 目标与机器人重合
+        if (dir.sqrMagnitude < 1e-4f)
+            return 0.0;
 
-        // Unity 偏航角：绕 Y 轴，atan2(X, Z)
         float yawUnity = Mathf.Atan2(dir.x, dir.z);
-
-        // ROS 偏航角：Unity Y 顺时针 = ROS Z 逆时针，取反
         return -yawUnity;
     }
-
-    // ── 红点指示器 ──────────────────────────────────────────────────────────
 
     void CreateMarker()
     {
         goalMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         goalMarker.name = "GoalMarker";
 
-        // 压扁成薄圆饼，高度 = 0.02m，半径由 markerRadius 控制
         goalMarker.transform.localScale = new Vector3(markerRadius * 2f, 0.01f, markerRadius * 2f);
-
-        // 移除碰撞体，避免干扰后续射线检测
         Destroy(goalMarker.GetComponent<Collider>());
 
-        // 设置红色自发光材质（不受光照影响，在任意光照下都醒目）
         Renderer rend = goalMarker.GetComponent<Renderer>();
         Material mat = new Material(rend.sharedMaterial);
         mat.color = new Color(1f, 0.08f, 0.08f, 1f);
-
-        // URP 自发光（若 shader 支持）
         mat.EnableKeyword("_EMISSION");
         mat.SetColor("_EmissionColor", new Color(0.8f, 0f, 0f));
 
@@ -176,12 +247,9 @@ public class GoalPublisher : MonoBehaviour
     {
         if (!markerReady) return;
 
-        // 略微抬高以避免 Z-fighting
         goalMarker.transform.position = new Vector3(groundPoint.x, 0.02f, groundPoint.z);
         goalMarker.SetActive(true);
     }
-
-    // ── 工具方法 ─────────────────────────────────────────────────────────────
 
     static TimeMsg MakeStamp()
     {

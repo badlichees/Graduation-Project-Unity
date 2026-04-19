@@ -6,35 +6,40 @@ using RosMessageTypes.Std;
 using System;
 
 /// <summary>
-/// 发布TurtleBot3的里程计信息（nav_msgs/Odometry）到ROS2的/odom话题
-/// 支持两种计算模式：
-/// 1. 差速里程计：通过左右轮的角速度推算机器人的运动（累积误差）
-/// 2. 直接物理反馈：从机器人的ArticulationBody直接读取位姿和速度（更准确）
+/// 发布机器人里程计。
 /// </summary>
 public class OdometryPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
     public string topicName = "/odom";
-    public float publishFrequency = 30.0f; // Hz
+    public float publishFrequency = 30.0f;
+    [Min(1)]
+    public int publisherQueueSize = 100;
 
     [Header("Odometry Source")]
     public OdometrySource source = OdometrySource.Differential;
     public ArticulationBody wheelLeftJoint;
     public ArticulationBody wheelRightJoint;
-    public ArticulationBody robotBase; // 用于直接获取位姿和速度
+    public ArticulationBody robotBase;
 
     [Header("Robot Parameters")]
-    public float wheelRadius = 0.033f; // 轮子半径 (米)
-    public float wheelSeparation = 0.16f; // 轮距 (米)
+    public float wheelRadius = 0.033f;
+    public float wheelSeparation = 0.16f;
 
     [Header("TF Settings")]
     public string odomFrameId = "odom";
     public string baseFrameId = "base_footprint";
 
+    [Header("Debug")]
+    [Tooltip("输出里程计调试日志。")]
+    public bool enableDebugLogs = false;
+    [Min(0.1f)]
+    public float debugLogInterval = 0.5f;
+
     public enum OdometrySource
     {
-        Differential,    // 通过轮子角速度计算
-        DirectPhysics    // 直接使用机器人的物理状态
+        Differential,
+        DirectPhysics
     }
 
     private ROSConnection ros;
@@ -44,26 +49,24 @@ public class OdometryPublisher : MonoBehaviour
     private PoseWithCovarianceMsg pose;
     private TwistWithCovarianceMsg twist;
 
-    // 差速里程计累积状态
-    private Vector2 position = Vector2.zero; // x, y (平面)
-    private float orientation = 0.0f; // 弧度
+    private Vector2 position = Vector2.zero;
+    private float orientation = 0.0f;
     private float lastLeftAngle = 0.0f;
     private float lastRightAngle = 0.0f;
     private bool firstUpdate = true;
+    private float nextDebugLogTime;
 
     void Start()
     {
-        // 初始化ROS连接
         ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<OdometryMsg>(topicName);
+        ros.RegisterPublisher<OdometryMsg>(topicName, publisherQueueSize);
 
-        // 初始化消息结构
         header = new HeaderMsg();
         header.frame_id = odomFrameId;
 
         pose = new PoseWithCovarianceMsg();
         pose.pose = new PoseMsg();
-        pose.covariance = new double[36]; // 默认全零
+        pose.covariance = new double[36];
 
         twist = new TwistWithCovarianceMsg();
         twist.twist = new TwistMsg();
@@ -75,13 +78,12 @@ public class OdometryPublisher : MonoBehaviour
         odomMsg.pose = pose;
         odomMsg.twist = twist;
 
-        // 根据模式进行验证
         if (source == OdometrySource.Differential)
         {
             if (wheelLeftJoint == null || wheelRightJoint == null)
             {
                 Debug.LogError("差速里程计模式需要设置左右轮关节！");
-            }                
+            }
             else
             {
                 lastLeftAngle = GetWheelAngle(wheelLeftJoint);
@@ -113,11 +115,10 @@ public class OdometryPublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 根据选择的源更新里程计数据
+    /// 更新里程计数据。
     /// </summary>
     void UpdateOdometry()
     {
-        // 手动生成当前时间戳
         var now = DateTime.UtcNow;
         var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var timeSpan = now - epoch;
@@ -136,7 +137,7 @@ public class OdometryPublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 差速里程计：通过轮子转角变化推算位姿和速度。
+    /// 使用轮速积分里程计。
     /// </summary>
     void UpdateDifferentialOdometry()
     {
@@ -157,23 +158,19 @@ public class OdometryPublisher : MonoBehaviour
         float deltaDistance = (deltaLeft + deltaRight) * wheelRadius * 0.5f;
         float deltaTheta = (deltaRight - deltaLeft) * wheelRadius / wheelSeparation;
 
-        // 更新位置和朝向
         orientation += deltaTheta;
         position.x += deltaDistance * Mathf.Cos(orientation);
         position.y += deltaDistance * Mathf.Sin(orientation);
 
-        // 计算当前线速度和角速度（基于delta time）
         float dt = 1.0f / publishFrequency;
         float linearVel = deltaDistance / dt;
         float angularVel = deltaTheta / dt;
 
-        // 填充pose
         pose.pose.position.x = position.x;
         pose.pose.position.y = position.y;
         pose.pose.position.z = 0.0f;
         pose.pose.orientation = Quaternion.Euler(0, 0, orientation * Mathf.Rad2Deg).ToRosQuaternion();
 
-        // 填充twist
         twist.twist.linear.x = linearVel;
         twist.twist.linear.y = 0.0f;
         twist.twist.linear.z = 0.0f;
@@ -186,10 +183,7 @@ public class OdometryPublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 直接物理反馈：从机器人的ArticulationBody读取当前位姿和速度
-    /// 坐标系转换：Unity(X右,Y上,Z前) → ROS(X前,Y左,Z上)
-    ///   位置: ros.x = unity.z, ros.y = -unity.x, ros.z = unity.y (地面机器人取0)
-    ///   四元数: 绕固定轴旋转 R = R_unity_to_ros * R_unity * R_unity_to_ros^-1
+    /// 直接读取物理状态。
     /// </summary>
     void UpdateDirectPhysicsOdometry()
     {
@@ -199,19 +193,15 @@ public class OdometryPublisher : MonoBehaviour
         Vector3 worldPos = robotBase.transform.position;
         Quaternion worldRot = robotBase.transform.rotation;
 
-        // 位置：Unity(x,y,z) → ROS(z,-x,0)，地面机器人 Z 固定为0
         pose.pose.position.x = worldPos.z;
         pose.pose.position.y = -worldPos.x;
         pose.pose.position.z = 0.0;
 
-        // 朝向：Unity绕Y轴旋转（偏航）→ ROS绕Z轴旋转
-        // 直接从四元数提取偏航角，避免 eulerAngles.y [0,360] 的不连续跳变
-        // 公式：yaw = atan2(2*(xz + wy), 1 - 2*(x² + y²))，结果域 (-π, π]
         float yawUnity = Mathf.Atan2(
             2f * (worldRot.x * worldRot.z + worldRot.w * worldRot.y),
             1f - 2f * (worldRot.x * worldRot.x + worldRot.y * worldRot.y)
         );
-        float yawROS = -yawUnity; // Unity Y顺时针 = ROS Z逆时针，方向取反
+        float yawROS = -yawUnity;
         pose.pose.orientation = new RosMessageTypes.Geometry.QuaternionMsg
         {
             x = 0.0,
@@ -220,21 +210,21 @@ public class OdometryPublisher : MonoBehaviour
             w = Math.Cos(yawROS * 0.5)
         };
 
-        // 线速度：Unity(x,y,z) → ROS(z,-x,0)
         Vector3 linearVel = robotBase.velocity;
         twist.twist.linear.x = linearVel.z;
         twist.twist.linear.y = -linearVel.x;
         twist.twist.linear.z = 0.0;
 
-        // 角速度：Unity绕Y轴(偏航) → ROS绕Z轴，方向取反
         Vector3 angularVel = robotBase.angularVelocity;
         twist.twist.angular.x = 0.0;
         twist.twist.angular.y = 0.0;
         twist.twist.angular.z = -angularVel.y;
+
+        MaybeLogDirectPhysics(worldPos, yawUnity, yawROS, linearVel, angularVel);
     }
 
     /// <summary>
-    /// 获取轮子关节的当前角度（弧度）
+    /// 读取轮子角度。
     /// </summary>
     float GetWheelAngle(ArticulationBody wheel)
     {
@@ -245,16 +235,13 @@ public class OdometryPublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 发布里程计消息到ROS
+    /// 发布里程计消息。
     /// </summary>
     void PublishOdometry()
     {
         ros.Publish(topicName, odomMsg);
     }
 
-    /// <summary>
-    /// 在Scene视图中绘制里程计坐标系（仅用于调试）
-    /// </summary>
     void OnDrawGizmosSelected()
     {
         if (robotBase != null)
@@ -264,11 +251,29 @@ public class OdometryPublisher : MonoBehaviour
             Gizmos.DrawRay(robotBase.transform.position, robotBase.transform.forward * 0.3f);
         }
     }
+
+    void MaybeLogDirectPhysics(
+        Vector3 worldPos,
+        float yawUnity,
+        float yawROS,
+        Vector3 linearVel,
+        Vector3 angularVel)
+    {
+        if (!enableDebugLogs || source != OdometrySource.DirectPhysics || Time.time < nextDebugLogTime)
+            return;
+
+        nextDebugLogTime = Time.time + debugLogInterval;
+        Debug.Log(
+            $"OdometryPublisher DirectPhysics: " +
+            $"unityPos=({worldPos.x:F3}, {worldPos.z:F3}), " +
+            $"yawUnity={yawUnity * Mathf.Rad2Deg:F1} deg, yawROS={yawROS * Mathf.Rad2Deg:F1} deg, " +
+            $"unityVel=({linearVel.x:F3}, {linearVel.z:F3}) m/s, " +
+            $"unityAngularY={angularVel.y:F3} rad/s, odomAngularZ={twist.twist.angular.z:F3} rad/s"
+        );
+    }
 }
 
-/// <summary>
-/// 扩展方法：将Unity的Quaternion转换为ROS的geometry_msgs/Quaternion
-/// </summary>
+/// <summary>Quaternion 转 ROS 消息。</summary>
 public static class QuaternionExtensions
 {
     public static RosMessageTypes.Geometry.QuaternionMsg ToRosQuaternion(this Quaternion q)

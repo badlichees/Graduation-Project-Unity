@@ -6,14 +6,15 @@ using RosMessageTypes.BuiltinInterfaces;
 using System;
 
 /// <summary>
-/// 模拟TurtleBot3的IMU传感器，发布sensor_msgs/Imu到ROS2的/imu话题
-/// 从imu_link的ArticulationBody读取角速度和线速度，并计算方向四元数
+/// 发布 IMU 数据。
 /// </summary>
 public class ImuPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
     public string topicName = "/imu";
-    public float publishFrequency = 100.0f; // Hz
+    public float publishFrequency = 30.0f; // Hz
+    [Min(1)]
+    public int publisherQueueSize = 100;
 
     [Header("IMU Sensor Link")]
     public ArticulationBody imuLink; // 指向imu_link的ArticulationBody
@@ -31,13 +32,11 @@ public class ImuPublisher : MonoBehaviour
     private ImuMsg imuMsg;
     private HeaderMsg header;
 
-    // 用于计算线性加速度的上一次速度
     private Vector3 lastVelocity = Vector3.zero;
     private bool firstUpdate = true;
 
     void Start()
     {
-        // 如果没有指定imuLink，尝试从当前GameObject获取
         if (imuLink == null)
             imuLink = GetComponent<ArticulationBody>();
 
@@ -48,23 +47,17 @@ public class ImuPublisher : MonoBehaviour
             return;
         }
 
-        // 初始化ROS连接
         ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<ImuMsg>(topicName);
+        ros.RegisterPublisher<ImuMsg>(topicName, publisherQueueSize);
 
-        // 初始化消息结构
         header = new HeaderMsg();
         header.frame_id = frameId;
 
         imuMsg = new ImuMsg();
         imuMsg.header = header;
-        // 方向四元数（初始化为单位四元数）
         imuMsg.orientation = new RosMessageTypes.Geometry.QuaternionMsg { x = 0, y = 0, z = 0, w = 1 };
-        // 方向协方差：[0]=-1 表示未提供可靠方向数据，Nav2/EKF 将忽略此字段
         imuMsg.orientation_covariance = new double[9] { -1, 0, 0, 0, 0, 0, 0, 0, 0 };
-        // 角速度协方差（-1表示未知）
         imuMsg.angular_velocity_covariance = new double[9] { -1, 0, 0, 0, 0, 0, 0, 0, 0 };
-        // 线性加速度协方差（-1表示未知）
         imuMsg.linear_acceleration_covariance = new double[9] { -1, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         Debug.Log($"ImuPublisher initialized: publishing {frameId} at {publishFrequency}Hz");
@@ -84,11 +77,10 @@ public class ImuPublisher : MonoBehaviour
     }
 
     /// <summary>
-    /// 更新IMU数据：方向、角速度、线性加速度
+    /// 更新 IMU 数据。
     /// </summary>
     void UpdateImuData(float dt)
     {
-        // 更新时间戳
         var now = DateTime.UtcNow;
         var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var timeSpan = now - epoch;
@@ -96,15 +88,12 @@ public class ImuPublisher : MonoBehaviour
         uint nanosec = (uint)((timeSpan.TotalSeconds - sec) * 1e9);
         header.stamp = new TimeMsg { sec = sec, nanosec = nanosec };
 
-        // 方向：使用imu_link的世界旋转（转换为ROS四元数）
         Quaternion worldRot = imuLink.transform.rotation;
         imuMsg.orientation = worldRot.ToRosQuaternion();
 
-        // 角速度：世界坐标系下的角速度，转换为局部坐标系（imu_link）
         Vector3 angularVelWorld = imuLink.angularVelocity;
         Vector3 angularVelLocal = imuLink.transform.InverseTransformDirection(angularVelWorld);
 
-        // 线性加速度：通过速度差分计算（世界坐标系下），然后转换为局部坐标系
         Vector3 linearAccelWorld = Vector3.zero;
         if (!firstUpdate)
         {
@@ -117,7 +106,6 @@ public class ImuPublisher : MonoBehaviour
         lastVelocity = imuLink.velocity;
         Vector3 linearAccelLocal = imuLink.transform.InverseTransformDirection(linearAccelWorld);
 
-        // 添加噪声（可选）
         if (addNoise)
         {
             angularVelLocal += new Vector3(
@@ -132,10 +120,6 @@ public class ImuPublisher : MonoBehaviour
             );
         }
 
-        // 赋值给消息（注意ROS坐标系：x向前，y向左，z向上）
-        // Unity坐标系：z向前（车头），y向上，x向右
-        // 因此需要进行映射：Unity -> ROS
-        // Unity (z, x, y) -> ROS (x, -y, z)
         imuMsg.angular_velocity.x = angularVelLocal.z;
         imuMsg.angular_velocity.y = -angularVelLocal.x;
         imuMsg.angular_velocity.z = angularVelLocal.y;
@@ -144,22 +128,18 @@ public class ImuPublisher : MonoBehaviour
         imuMsg.linear_acceleration.y = -linearAccelLocal.x;
         imuMsg.linear_acceleration.z = linearAccelLocal.y;
 
-        // 重力补偿：静止时加速度计测量到 +9.81 m/s² 指向ROS的z轴（向上）
         float gravity = 9.81f;
         imuMsg.linear_acceleration.z += gravity;
     }
 
     /// <summary>
-    /// 发布IMU消息到ROS
+    /// 发布 IMU 消息。
     /// </summary>
     void PublishImu()
     {
         ros.Publish(topicName, imuMsg);
     }
 
-    /// <summary>
-    /// 生成高斯噪声（均值为0，标准差为std）
-    /// </summary>
     float GaussianNoise(float mean, float std)
     {
         float u1 = 1.0f - UnityEngine.Random.value;
@@ -168,9 +148,6 @@ public class ImuPublisher : MonoBehaviour
         return mean + std * randStdNormal;
     }
 
-    /// <summary>
-    /// 在Inspector中重置frameId到默认值
-    /// </summary>
     void Reset()
     {
         frameId = "imu_link";

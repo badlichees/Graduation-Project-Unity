@@ -19,10 +19,6 @@ public class ROSSubscriberExample : MonoBehaviour
         Debug.Log($"已订阅 ROS2 话题：{topicName}");
     }
 
-    /// <summary>
-    /// 接收到消息时调用
-    /// </summary>
-    /// <param name="msg">接收到的字符串消息</param>
     private void OnMessageReceived(StringMsg msg)
     {
         Debug.Log($"收到 ROS2 消息：{msg.data}");

@@ -2,10 +2,7 @@ using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Std;
 
-/// <summary>
-/// Unity-ROS2通信延迟测试客户端：通过发送带时间戳的ping消息然后接收ROS2返回的pong消息计算时间差，用于测量Unity与ROS2之间的通信延迟
-/// 依赖ROS-TCP-Connector，需确保端点正确配置
-/// </summary>
+/// <summary>Unity-ROS2 通信延迟测试客户端（ping/pong 往返计时）。</summary>
 public class ROSLatencyClient : MonoBehaviour
 {
     ROSConnection ros; // 实例化ROS连接管理器

@@ -5,11 +5,8 @@ using RosMessageTypes.Std;
 /// <summary>
 /// Unity与ROS2通信示例类，用于Unity向ROS2发布字符串消息
 /// </summary>
-public class ROSPublisherExample : MonoBehaviour 
+public class ROSPublisherExample : MonoBehaviour
 {
-    /// <summary>
-    /// ROS连接的核心管理器，负责建立、维护与ROS桥接器的TCP连接，并提供消息的发布和订阅功能
-    /// </summary>
     ROSConnection ros;
 
     public string topicName = "unity_talker";

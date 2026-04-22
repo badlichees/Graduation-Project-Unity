@@ -223,8 +223,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 10, y: 10, z: 10}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -240,6 +240,7 @@ GameObject:
   - component: {fileID: 1096915056}
   - component: {fileID: 1096915055}
   - component: {fileID: 1096915058}
+  - component: {fileID: 1096915059}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -365,6 +366,21 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &1096915059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1096915054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e02bd3f9dc5bf384590f04076f92e90a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 1975805391}
+  worldOffset: {x: 0, y: 1.2, z: -1.8}
+  followLerp: 0.15
 --- !u!4 &1140081163 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3885009520023495739, guid: 7e8ecfd17cd58c247916864b74797f3f, type: 3}
@@ -824,6 +840,7 @@ MonoBehaviour:
   topicName: /map_raw
   frameId: map
   publishFrequency: 1
+  publisherQueueSize: 10
   mapGenerator: {fileID: 1598164489}
   autoUpdateOnStart: 1
   rosCellSize: 0.1
@@ -843,6 +860,9 @@ MonoBehaviour:
   frameId: map
   publisherQueueSize: 10
   robotTransform: {fileID: 1975805391}
+  targetPositionXZ: {x: 5, y: 10}
+  publishKey: 32
+  allowMouseClick: 0
   mapGenerator: {fileID: 1598164489}
   maxSnapSearchRadius: 8
   goalClearanceRadiusTiles: 1

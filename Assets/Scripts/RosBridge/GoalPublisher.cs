@@ -35,6 +35,14 @@ public class GoalPublisher : MonoBehaviour
     public float testGoalDistance = 2.0f;
     [Min(0f)] public float autoPublishDelay = 2.0f;
 
+    [Header("Algorithm Selector")]
+    [Tooltip("与 Nav2 planner_server 中注册的插件 ID 一一对应。")]
+    public string[] availableAlgorithms = { "Astar", "Dijkstra", "Greedy", "NavFn" };
+    [Tooltip("当前选中算法的下标（运行时按 Tab 切换）。")]
+    public int selectedAlgorithmIndex = 0;
+
+    public const string PlannerSelectorTopic = "/planner_selector_unity";
+
     [Header("Visual Marker")]
     [Range(0.05f, 0.5f)]
     public float markerRadius = 0.12f;
@@ -51,6 +59,7 @@ public class GoalPublisher : MonoBehaviour
     {
         ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<PoseStampedMsg>(topicName, publisherQueueSize);
+        ros.RegisterPublisher<StringMsg>(PlannerSelectorTopic, 1);
 
         if (mapGenerator == null)
             mapGenerator = FindFirstObjectByType<MapGenerator>();
@@ -63,8 +72,9 @@ public class GoalPublisher : MonoBehaviour
         if (mapGenerator == null || mapGenerator.GeneratedObstacleMap != null)
             RefreshTargetPreview();
 
-        Debug.Log($"GoalPublisher: 已启动，按 [{publishKey}] 发布目标至 {topicName}" +
-                  (allowMouseClick ? "，鼠标左键点击地面亦可发布" : ""));
+        InvokeRepeating(nameof(PublishPlannerSelection), 0f, 0.5f);
+
+        Debug.Log($"GoalPublisher: 已启动，按 [{publishKey}] 发布目标，按 [Tab] 切换算法，当前：{ActiveAlgorithm}");
     }
 
     void Update()
@@ -73,6 +83,9 @@ public class GoalPublisher : MonoBehaviour
 
         if (targetPositionXZ != lastPreviewedXZ)
             RefreshTargetPreview();
+
+        if (Input.GetKeyDown(KeyCode.Tab))
+            CycleAlgorithm();
 
         if (Input.GetKeyDown(publishKey) && hasGoalPoint)
             PublishGoalPoint(currentGoalPoint, "inspector");
@@ -259,6 +272,39 @@ public class GoalPublisher : MonoBehaviour
         int sec   = (int)ts.TotalSeconds;
         uint nsec = (uint)((ts.TotalSeconds - sec) * 1e9);
         return new TimeMsg { sec = sec, nanosec = nsec };
+    }
+
+    public string ActiveAlgorithm =>
+        (availableAlgorithms != null && availableAlgorithms.Length > 0)
+            ? availableAlgorithms[Mathf.Clamp(selectedAlgorithmIndex, 0, availableAlgorithms.Length - 1)]
+            : "Unknown";
+
+    public void SelectAlgorithm(int index)
+    {
+        if (availableAlgorithms == null || availableAlgorithms.Length == 0) return;
+        selectedAlgorithmIndex = Mathf.Clamp(index, 0, availableAlgorithms.Length - 1);
+        PublishPlannerSelection();
+    }
+
+    public void CycleAlgorithm()
+    {
+        if (availableAlgorithms == null || availableAlgorithms.Length == 0) return;
+        selectedAlgorithmIndex = (selectedAlgorithmIndex + 1) % availableAlgorithms.Length;
+        PublishPlannerSelection();
+    }
+
+    void PublishPlannerSelection()
+    {
+        if (ros == null || availableAlgorithms == null || availableAlgorithms.Length == 0) return;
+        ros.Publish(PlannerSelectorTopic, new StringMsg(ActiveAlgorithm));
+        Debug.Log($"GoalPublisher: 规划算法已切换 → {ActiveAlgorithm}");
+    }
+
+    void OnGUI()
+    {
+        GUI.Label(new Rect(10, Screen.height - 34, 260, 24),
+            $"<b>规划算法: {ActiveAlgorithm}</b>  [Tab 切换]",
+            new GUIStyle(GUI.skin.label) { fontSize = 14, richText = true });
     }
 
     void OnDrawGizmosSelected()

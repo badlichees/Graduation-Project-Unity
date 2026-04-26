@@ -60,7 +60,6 @@ public class GoalPublisher : MonoBehaviour
         ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<PoseStampedMsg>(topicName, publisherQueueSize);
         ros.RegisterPublisher<StringMsg>(PlannerSelectorTopic, 1);
-
         if (mapGenerator == null)
             mapGenerator = FindFirstObjectByType<MapGenerator>();
 
@@ -202,10 +201,47 @@ public class GoalPublisher : MonoBehaviour
         };
 
         ros.Publish(topicName, msg);
+
         Debug.Log(
             $"GoalPublisher: [{sourceLabel}] 目标已发布 " +
             $"Unity({goalPoint.x:F2}, {goalPoint.z:F2}) -> ROS({rosX:F2}, {rosY:F2}), " +
             $"yaw={yawROS * Mathf.Rad2Deg:F1}°");
+    }
+
+    /// <summary>
+    /// 向 Nav2 发布静默目标（不显示 marker、不计入导航追踪）。
+    /// 目标点设为机器人当前重置位置，促使 Nav2 立即取消当前 goal。
+    /// </summary>
+    public void PublishSilentGoal(Vector3 unityPos, Quaternion unityRot)
+    {
+        if (ros == null) return;
+        // 压制这次假规划触发的 /planner_stats，避免污染统计和"最近"显示
+        PlannerStatsStore.SuppressNextRecord = true;
+
+        double rosX = unityPos.z;
+        double rosY = -unityPos.x;
+
+        // 从四元数提取 yaw 避免 eulerAngles 奇异
+        float yawUnity = Mathf.Atan2(
+            2f * (unityRot.w * unityRot.y + unityRot.x * unityRot.z),
+            1f - 2f * (unityRot.y * unityRot.y + unityRot.z * unityRot.z));
+        double yawROS = -yawUnity;
+
+        ros.Publish(topicName, new PoseStampedMsg
+        {
+            header = new HeaderMsg { stamp = MakeStamp(), frame_id = frameId },
+            pose   = new PoseMsg
+            {
+                position    = new PointMsg { x = rosX, y = rosY, z = 0.0 },
+                orientation = new QuaternionMsg
+                {
+                    x = 0.0, y = 0.0,
+                    z = Math.Sin(yawROS * 0.5),
+                    w = Math.Cos(yawROS * 0.5)
+                }
+            }
+        });
+        Debug.Log($"GoalPublisher: 静默目标已发布至初始位置 ROS({rosX:F2},{rosY:F2})，Nav2 将取消当前导航");
     }
 
     void HandleAutoTestGoal()
@@ -268,6 +304,12 @@ public class GoalPublisher : MonoBehaviour
 
         goalMarker.transform.position = new Vector3(groundPoint.x, 0.02f, groundPoint.z);
         goalMarker.SetActive(true);
+    }
+
+    public void ClearGoalMarker()
+    {
+        if (goalMarker != null) goalMarker.SetActive(false);
+        // hasGoalPoint 保持不变：重置位姿不清除目标记忆，Space 键仍可重发上一个目标
     }
 
     static TimeMsg MakeStamp()

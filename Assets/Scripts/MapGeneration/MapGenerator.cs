@@ -143,13 +143,15 @@ namespace RobotSimulation.MapGeneration
         #endregion
         
         #region 私有字段
-        
+
         private List<Coord> allTileCoords;
         private Queue<Coord> shuffledTileCoords;
         private Queue<Coord> shuffledOpenTileCoords;
         private Transform[,] tileMap;
         private Map currentMap;
-        
+        private Transform _mapHolder;
+        private Dictionary<Coord, Transform> _obstacleObjects = new Dictionary<Coord, Transform>();
+
         #endregion
         
         #region Unity生命周期
@@ -185,6 +187,7 @@ namespace RobotSimulation.MapGeneration
             
             currentMap = maps[mapIndex];
             tileMap = new Transform[currentMap.mapSize.x, currentMap.mapSize.y];
+            _obstacleObjects.Clear();
             System.Random prng = new System.Random(currentMap.seed);
             
             // 生成坐标
@@ -210,6 +213,7 @@ namespace RobotSimulation.MapGeneration
                 
                 mapHolder = new GameObject(holderName).transform;
                 mapHolder.parent = transform;
+                _mapHolder = mapHolder;
             }
             
             // 生成地板
@@ -251,6 +255,7 @@ namespace RobotSimulation.MapGeneration
                         Transform newObstacle = Instantiate(obstaclePrefab, obstaclePosition + Vector3.up * obstacleHeight / 2, Quaternion.identity) as Transform;
                         newObstacle.parent = mapHolder;
                         newObstacle.localScale = new Vector3((1 - outlinePercent) * tileSize, obstacleHeight, (1 - outlinePercent) * tileSize);
+                        _obstacleObjects[randomCoord] = newObstacle;
                         
                         Renderer obstacleRenderer = newObstacle.GetComponent<Renderer>();
                         if (obstacleRenderer != null)
@@ -479,7 +484,68 @@ namespace RobotSimulation.MapGeneration
         {
             return CoordToPosition(gridCoord.x, gridCoord.y);
         }
-        
+
+        public Transform MapHolder => _mapHolder;
+
+        /// <summary>
+        /// 反查某个 Transform 是否是已追踪的障碍物，是则输出其网格坐标。
+        /// </summary>
+        public bool TryGetObstacleAt(Transform t, out Coord coord)
+        {
+            foreach (var kv in _obstacleObjects)
+            {
+                if (kv.Value == t) { coord = kv.Key; return true; }
+            }
+            coord = default;
+            return false;
+        }
+
+        /// <summary>
+        /// 运行时动态设置某格的障碍物状态，并触发地图更新事件。
+        /// </summary>
+        public void SetObstacleAtGrid(Coord coord, bool isObstacle)
+        {
+            if (GeneratedObstacleMap == null || currentMap == null) return;
+            if (coord.x < 0 || coord.x >= MapSize.x || coord.y < 0 || coord.y >= MapSize.y) return;
+
+            if (isObstacle)
+            {
+                if (GeneratedObstacleMap[coord.x, coord.y]) return;
+                if (obstaclePrefab == null || _mapHolder == null) return;
+
+                float height = (currentMap.minObstacleHeight + currentMap.maxObstacleHeight) * 0.5f;
+                Vector3 pos = CoordToPosition(coord.x, coord.y) + Vector3.up * height * 0.5f;
+                Transform newObs = Instantiate(obstaclePrefab, pos, Quaternion.identity);
+                newObs.parent = _mapHolder;
+                newObs.localScale = new Vector3((1 - outlinePercent) * tileSize, height, (1 - outlinePercent) * tileSize);
+
+                Renderer rend = newObs.GetComponent<Renderer>();
+                if (rend != null)
+                {
+                    Material mat = new Material(rend.sharedMaterial);
+                    float colourPercent = coord.y / (float)MapSize.y;
+                    mat.color = Color.Lerp(currentMap.foregroundColour, currentMap.backgroundColour, colourPercent);
+                    rend.sharedMaterial = mat;
+                }
+
+                _obstacleObjects[coord] = newObs;
+                GeneratedObstacleMap[coord.x, coord.y] = true;
+            }
+            else
+            {
+                if (!GeneratedObstacleMap[coord.x, coord.y]) return;
+
+                if (_obstacleObjects.TryGetValue(coord, out Transform t))
+                {
+                    Destroy(t.gameObject);
+                    _obstacleObjects.Remove(coord);
+                }
+                GeneratedObstacleMap[coord.x, coord.y] = false;
+            }
+
+            OnMapGenerated?.Invoke();
+        }
+
         #endregion
     }
 }

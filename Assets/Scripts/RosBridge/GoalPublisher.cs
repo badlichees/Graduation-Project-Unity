@@ -37,7 +37,7 @@ public class GoalPublisher : MonoBehaviour
 
     [Header("Algorithm Selector")]
     [Tooltip("与 Nav2 planner_server 中注册的插件 ID 一一对应。")]
-    public string[] availableAlgorithms = { "Astar", "Dijkstra", "Greedy", "NavFn" };
+    public string[] availableAlgorithms = { "Astar", "Dijkstra", "Greedy", "NavFn", "RRTStar", "DLite", "JPS", "WAStar" };
     [Tooltip("当前选中算法的下标（运行时按 Tab 切换）。")]
     public int selectedAlgorithmIndex = 0;
 
@@ -137,6 +137,10 @@ public class GoalPublisher : MonoBehaviour
 
         Vector3 goalPoint = SnapGoalToNearestOpenCell(hitPoint);
 
+        // 保持与 inspector 路径一致：按 Space 或 map 刷新时仍指向该点
+        currentGoalPoint = goalPoint;
+        hasGoalPoint = true;
+
         PublishGoalPoint(goalPoint, "mouse");
     }
 
@@ -157,14 +161,14 @@ public class GoalPublisher : MonoBehaviour
             return hitPoint;
         }
 
-        if (snappedGrid == clickedGrid)
-            return hitPoint;
-
         Vector3 snappedWorld = mapGenerator.GridToWorld(snappedGrid);
-        Debug.Log(
-            $"GoalPublisher: 点击点落在障碍格附近，目标已吸附到最近空闲格 " +
-            $"{clickedGrid} -> {snappedGrid}，净空半径={goalClearanceRadiusTiles}，" +
-            $"Unity({snappedWorld.x:F2}, {snappedWorld.z:F2})");
+        if (snappedGrid != clickedGrid)
+        {
+            Debug.Log(
+                $"GoalPublisher: 目标已吸附到最近空闲格 " +
+                $"{clickedGrid} -> {snappedGrid}，净空半径={goalClearanceRadiusTiles}，" +
+                $"Unity({snappedWorld.x:F2}, {snappedWorld.z:F2})");
+        }
         return snappedWorld;
     }
 
@@ -221,6 +225,8 @@ public class GoalPublisher : MonoBehaviour
         Vector3 desiredPoint = robotTransform.position + robotTransform.forward * forwardDistance;
         desiredPoint.y = 0f;
         Vector3 snappedPoint = SnapGoalToNearestOpenCell(desiredPoint);
+        currentGoalPoint = snappedPoint;
+        hasGoalPoint = true;
         PublishGoalPoint(snappedPoint, sourceLabel);
     }
 

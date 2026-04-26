@@ -760,6 +760,7 @@ GameObject:
   - component: {fileID: 1598164488}
   - component: {fileID: 1598164491}
   - component: {fileID: 1598164492}
+  - component: {fileID: 1598164493}
   m_Layer: 0
   m_Name: MapGenerator
   m_TagString: Untagged
@@ -869,7 +870,29 @@ MonoBehaviour:
   autoPublishTestGoal: 0
   testGoalDistance: 2
   autoPublishDelay: 30
+  availableAlgorithms:
+  - Astar
+  - Dijkstra
+  - Greedy
+  - NavFn
+  - RRTStar
+  - DLite
+  selectedAlgorithmIndex: 5
   markerRadius: 0.12
+--- !u!114 &1598164493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598164487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92eee62ad08f9b64f8e27bc92fa55c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mapGenerator: {fileID: 1598164489}
+  raycastMaxDistance: 200
 --- !u!4 &1975805391 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7253032877743872868, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}

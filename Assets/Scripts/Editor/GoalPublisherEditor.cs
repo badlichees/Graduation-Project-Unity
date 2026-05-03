@@ -14,6 +14,7 @@ public class GoalPublisherEditor : Editor
             return;
 
         EditorGUILayout.Space(6);
+        // 在 Inspector 里切换可避免运行时只靠 Tab 时看不清当前算法
         EditorGUILayout.LabelField("Algorithm Switcher", EditorStyles.boldLabel);
 
         EditorGUILayout.BeginHorizontal();
@@ -39,7 +40,7 @@ public class GoalPublisherEditor : Editor
         }
         else
         {
-            EditorGUILayout.HelpBox("进入 Play 模式后点击按钮可实时切换算法，按 Tab 键亦可循环切换。", MessageType.None);
+            EditorGUILayout.HelpBox("进入 Play 模式后点击按钮可实时切换算法，按 Tab 键亦可循环切换", MessageType.None);
         }
     }
 }

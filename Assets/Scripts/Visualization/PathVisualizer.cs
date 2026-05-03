@@ -3,11 +3,7 @@ using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Nav;
 using UnityEngine;
 
-/// <summary>
-/// 订阅 Nav2 /plan（nav_msgs/Path），用 LineRenderer 在 Unity 场景中画出路径。
-/// 颜色随当前规划算法自动切换。
-/// 挂到带有 LineRenderer 组件的 GameObject 上。
-/// </summary>
+// 路径颜色跟随当前算法选择，方便同一场景里肉眼对比规划结果
 [RequireComponent(typeof(LineRenderer))]
 public class PathVisualizer : MonoBehaviour
 {
@@ -36,7 +32,6 @@ public class PathVisualizer : MonoBehaviour
     GoalPublisher goalPublisher;
     string currentAlgorithm = "Astar";
 
-    // Reset() 在 Editor 里添加组件时立即执行，解决 Edit Mode 粉红色问题
 #if UNITY_EDITOR
     void Reset()
     {
@@ -90,13 +85,14 @@ public class PathVisualizer : MonoBehaviour
         Color c = AlgoColors.TryGetValue(currentAlgorithm, out var col) ? col : Color.white;
         lr.startColor    = c;
         lr.endColor      = c;
-        lr.material.color = c;  // Unlit/Color 需要此行；支持顶点色的 shader 忽略它
+        // Unlit/Color 需要材质色，支持顶点色的 shader 会忽略它
+        lr.material.color = c;
         lr.positionCount = msg.poses.Length;
 
         for (int i = 0; i < msg.poses.Length; ++i)
         {
             var p = msg.poses[i].pose.position;
-            // ROS(x,y) → Unity(X,Z)：rosX→unityZ，rosY→-unityX
+            // 与 goal/odom/map 的轴向映射保持一致
             lr.SetPosition(i, new Vector3(-(float)p.y, lineHeight, (float)p.x));
         }
     }

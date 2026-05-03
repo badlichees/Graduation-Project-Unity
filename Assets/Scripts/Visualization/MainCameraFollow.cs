@@ -1,6 +1,5 @@
 using UnityEngine;
 
-/// <summary>主相机跟随机器人。</summary>
 [RequireComponent(typeof(Camera))]
 public class MainCameraFollow : MonoBehaviour
 {
@@ -19,7 +18,7 @@ public class MainCameraFollow : MonoBehaviour
         if (target == null) return;
         if (target.GetComponent<ArticulationBody>() != null) return;
 
-        // 传入的是无物理的根节点时，自动下钻到第一个 ArticulationBody
+        // URDF 根节点可能不随物理移动，跟随第一个 ArticulationBody 更稳定
         var ab = target.GetComponentInChildren<ArticulationBody>();
         if (ab != null && ab.transform != target)
             target = ab.transform;

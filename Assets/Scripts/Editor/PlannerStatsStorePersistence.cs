@@ -5,6 +5,7 @@ using UnityEditor;
 [InitializeOnLoad]
 static class PlannerStatsStorePersistence
 {
+    // SessionState 跨 Play Mode 和脚本重载保留，但不把临时实验数据写进工程文件
     internal const string SessionKey = "PlannerStats_v1";
 
     static PlannerStatsStorePersistence()

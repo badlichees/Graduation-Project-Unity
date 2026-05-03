@@ -7,9 +7,6 @@ using RosMessageTypes.BuiltinInterfaces;
 using System;
 using RobotSimulation.MapGeneration;
 
-/// <summary>
-/// 发布测试地图到 ROS2。
-/// </summary>
 public class OccupancyGridPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
@@ -24,9 +21,9 @@ public class OccupancyGridPublisher : MonoBehaviour
     public MapGenerator mapGenerator;
 
     [Header("Options")]
-    [Tooltip("启动时自动读取地图。")]
+    [Tooltip("启动时自动读取地图")]
     public bool autoUpdateOnStart = true;
-    [Tooltip("发布到 ROS 的栅格分辨率。")]
+    [Tooltip("发布到 ROS 的栅格分辨率")]
     [Min(0.01f)]
     public float rosCellSize = 0.1f;
 
@@ -45,7 +42,7 @@ public class OccupancyGridPublisher : MonoBehaviour
 
         if (mapGenerator == null)
         {
-            Debug.LogError("OccupancyGridPublisher: 未找到 MapGenerator，请在 Inspector 中指定。");
+            Debug.LogError("OccupancyGridPublisher: 未找到 MapGenerator，请在 Inspector 中指定");
             enabled = false;
             return;
         }
@@ -74,15 +71,12 @@ public class OccupancyGridPublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 刷新地图消息。
-    /// </summary>
     public void UpdateMap()
     {
         bool[,] obstacleMap = mapGenerator.GeneratedObstacleMap;
         if (obstacleMap == null)
         {
-            Debug.LogWarning("OccupancyGridPublisher: MapGenerator 还未生成地图，UpdateMap() 无效。");
+            Debug.LogWarning("OccupancyGridPublisher: MapGenerator 还未生成地图，UpdateMap() 无效");
             return;
         }
 
@@ -92,6 +86,7 @@ public class OccupancyGridPublisher : MonoBehaviour
         int cellsPerTile = Mathf.Max(1, Mathf.RoundToInt(tileSize / Mathf.Max(rosCellSize, 0.01f)));
         float res = tileSize / cellsPerTile;
 
+        // ROS 栅格轴向来自 Unity XZ 平面的旋转映射，宽高和原点不能直接照抄 Unity 网格
         uint rosWidth  = (uint)(unityH * cellsPerTile);
         uint rosHeight = (uint)(unityW * cellsPerTile);
 
@@ -107,6 +102,7 @@ public class OccupancyGridPublisher : MonoBehaviour
 
                 for (int subX = 0; subX < cellsPerTile; subX++)
                 {
+                    // 翻转 Unity X 轴，让 ROS map 与 odom/goal 的坐标约定一致
                     int ry = (unityW - 1 - gx) * cellsPerTile + subX;
                     int rowStart = ry * (int)rosWidth;
 
@@ -126,12 +122,12 @@ public class OccupancyGridPublisher : MonoBehaviour
             info = new MapMetaDataMsg
             {
                 map_load_time = stamp,
-                resolution    = res,
-                width         = rosWidth,
-                height        = rosHeight,
-                origin        = new PoseMsg
+                resolution = res,
+                width = rosWidth,
+                height = rosHeight,
+                origin = new PoseMsg
                 {
-                    position    = new PointMsg { x = originX, y = originY, z = 0.0 },
+                    position = new PointMsg { x = originX, y = originY, z = 0.0 },
                     orientation = new QuaternionMsg { x = 0, y = 0, z = 0, w = 1 }
                 }
             },
@@ -155,10 +151,10 @@ public class OccupancyGridPublisher : MonoBehaviour
 
     static TimeMsg MakeStamp()
     {
-        var now   = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
         var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var ts    = now - epoch;
-        int sec   = (int)ts.TotalSeconds;
+        var ts = now - epoch;
+        int sec = (int)ts.TotalSeconds;
         uint nsec = (uint)((ts.TotalSeconds - sec) * 1e9);
         return new TimeMsg { sec = sec, nanosec = nsec };
     }
@@ -170,7 +166,6 @@ public class OccupancyGridPublisher : MonoBehaviour
         if (size.x == 0 || size.y == 0) return;
         float res = mapGenerator.tileSize;
         Gizmos.color = Color.cyan;
-        Gizmos.DrawWireCube(Vector3.zero,
-            new Vector3(size.x * res, 0.05f, size.y * res));
+        Gizmos.DrawWireCube(Vector3.zero, new Vector3(size.x * res, 0.05f, size.y * res));
     }
 }

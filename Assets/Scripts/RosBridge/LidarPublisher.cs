@@ -3,9 +3,6 @@ using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Sensor;
 using System;
 
-/// <summary>
-/// 发布激光雷达数据。
-/// </summary>
 public class LidarPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
@@ -69,13 +66,10 @@ public class LidarPublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 执行一次扫描。
-    /// </summary>
     void PerformScan()
     {
         Vector3 origin = lidarOrigin.position;
-        float startAngle = -scanAngle * 0.5f; // 度
+        float startAngle = -scanAngle * 0.5f;
 
         for (int i = 0; i < samples; i++)
         {
@@ -94,9 +88,6 @@ public class LidarPublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 发布扫描数据。
-    /// </summary>
     void PublishScan()
     {
         var now = DateTime.UtcNow;

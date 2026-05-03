@@ -5,27 +5,24 @@ using RosMessageTypes.Std;
 using RosMessageTypes.BuiltinInterfaces;
 using System;
 
-/// <summary>
-/// 发布 IMU 数据。
-/// </summary>
 public class ImuPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
     public string topicName = "/imu";
-    public float publishFrequency = 30.0f; // Hz
+    public float publishFrequency = 30.0f;
     [Min(1)]
     public int publisherQueueSize = 100;
 
     [Header("IMU Sensor Link")]
-    public ArticulationBody imuLink; // 指向imu_link的ArticulationBody
+    public ArticulationBody imuLink;
 
     [Header("TF Frame")]
     public string frameId = "imu_link";
 
     [Header("Noise Simulation (optional)")]
     public bool addNoise = false;
-    public float angularVelocityNoiseStd = 0.01f; // 弧度/秒
-    public float linearAccelerationNoiseStd = 0.02f; // 米/秒^2
+    public float angularVelocityNoiseStd = 0.01f;
+    public float linearAccelerationNoiseStd = 0.02f;
 
     private ROSConnection ros;
     private float timeElapsed;
@@ -76,9 +73,6 @@ public class ImuPublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 更新 IMU 数据。
-    /// </summary>
     void UpdateImuData(float dt)
     {
         var now = DateTime.UtcNow;
@@ -108,6 +102,7 @@ public class ImuPublisher : MonoBehaviour
 
         if (addNoise)
         {
+            // 噪声默认关闭，保留开关用于测试 Nav2 对传感器抖动的容忍度
             angularVelLocal += new Vector3(
                 GaussianNoise(0, angularVelocityNoiseStd),
                 GaussianNoise(0, angularVelocityNoiseStd),
@@ -120,6 +115,7 @@ public class ImuPublisher : MonoBehaviour
             );
         }
 
+        // Unity 的本地 XYZ 映射到 ROS 传感器坐标，保持 base/imu TF 方向一致
         imuMsg.angular_velocity.x = angularVelLocal.z;
         imuMsg.angular_velocity.y = -angularVelLocal.x;
         imuMsg.angular_velocity.z = angularVelLocal.y;
@@ -132,9 +128,6 @@ public class ImuPublisher : MonoBehaviour
         imuMsg.linear_acceleration.z += gravity;
     }
 
-    /// <summary>
-    /// 发布 IMU 消息。
-    /// </summary>
     void PublishImu()
     {
         ros.Publish(topicName, imuMsg);

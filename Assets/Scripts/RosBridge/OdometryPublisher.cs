@@ -5,9 +5,6 @@ using RosMessageTypes.Geometry;
 using RosMessageTypes.Std;
 using System;
 
-/// <summary>
-/// 发布机器人里程计。
-/// </summary>
 public class OdometryPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
@@ -31,7 +28,7 @@ public class OdometryPublisher : MonoBehaviour
     public string baseFrameId = "base_footprint";
 
     [Header("Debug")]
-    [Tooltip("输出里程计调试日志。")]
+    [Tooltip("输出里程计调试日志")]
     public bool enableDebugLogs = false;
     [Min(0.1f)]
     public float debugLogInterval = 0.5f;
@@ -114,9 +111,6 @@ public class OdometryPublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 更新里程计数据。
-    /// </summary>
     void UpdateOdometry()
     {
         var now = DateTime.UtcNow;
@@ -136,9 +130,6 @@ public class OdometryPublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 使用轮速积分里程计。
-    /// </summary>
     void UpdateDifferentialOdometry()
     {
         float leftAngle = GetWheelAngle(wheelLeftJoint);
@@ -155,6 +146,7 @@ public class OdometryPublisher : MonoBehaviour
         float deltaLeft = Mathf.DeltaAngle(lastLeftAngle * Mathf.Rad2Deg, leftAngle * Mathf.Rad2Deg) * Mathf.Deg2Rad;
         float deltaRight = Mathf.DeltaAngle(lastRightAngle * Mathf.Rad2Deg, rightAngle * Mathf.Rad2Deg) * Mathf.Deg2Rad;
 
+        // 轮式积分可避免读取刚体全局位姿时引入 Unity/ROS 坐标系差异
         float deltaDistance = (deltaLeft + deltaRight) * wheelRadius * 0.5f;
         float deltaTheta = (deltaRight - deltaLeft) * wheelRadius / wheelSeparation;
 
@@ -182,9 +174,6 @@ public class OdometryPublisher : MonoBehaviour
         lastRightAngle = rightAngle;
     }
 
-    /// <summary>
-    /// 直接读取物理状态。
-    /// </summary>
     void UpdateDirectPhysicsOdometry()
     {
         if (robotBase == null)
@@ -193,6 +182,7 @@ public class OdometryPublisher : MonoBehaviour
         Vector3 worldPos = robotBase.transform.position;
         Quaternion worldRot = robotBase.transform.rotation;
 
+        // Unity 使用 XZ 平面，ROS 使用 XY 平面；这里统一成 map/odom 下的 ROS 坐标
         pose.pose.position.x = worldPos.z;
         pose.pose.position.y = -worldPos.x;
         pose.pose.position.z = 0.0;
@@ -223,9 +213,6 @@ public class OdometryPublisher : MonoBehaviour
         MaybeLogDirectPhysics(worldPos, yawUnity, yawROS, linearVel, angularVel);
     }
 
-    /// <summary>
-    /// 读取轮子角度。
-    /// </summary>
     float GetWheelAngle(ArticulationBody wheel)
     {
         if (wheel == null)
@@ -234,9 +221,6 @@ public class OdometryPublisher : MonoBehaviour
         return wheel.transform.localEulerAngles.x * Mathf.Deg2Rad;
     }
 
-    /// <summary>
-    /// 发布里程计消息。
-    /// </summary>
     void PublishOdometry()
     {
         ros.Publish(topicName, odomMsg);
@@ -273,7 +257,7 @@ public class OdometryPublisher : MonoBehaviour
     }
 }
 
-/// <summary>Quaternion 转 ROS 消息。</summary>
+// 仅用于 Unity 原生四元数无需坐标轴翻转的场景
 public static class QuaternionExtensions
 {
     public static RosMessageTypes.Geometry.QuaternionMsg ToRosQuaternion(this Quaternion q)

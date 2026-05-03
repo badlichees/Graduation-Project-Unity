@@ -117,7 +117,7 @@ namespace RobotSimulation.MapGeneration
         }
     }
 
-    /// <summary>基于网格的程序化地图生成器。</summary>
+    // 地图数据、场景实例和 ROS 发布都从这里派生，避免三份状态互相漂移
     public class MapGenerator : MonoBehaviour
     {
         #region 公共字段
@@ -137,7 +137,6 @@ namespace RobotSimulation.MapGeneration
         public bool generateOnStart = false;
         public bool instantiateObjects = true;
 
-        /// <summary>每次 GenerateMap() 完成后触发，订阅者可在此刷新地图数据</summary>
         public event Action OnMapGenerated;
 
         #endregion
@@ -167,10 +166,7 @@ namespace RobotSimulation.MapGeneration
         #endregion
         
         #region 地图生成
-        
-        /// <summary>
-        /// 生成地图，可选择是否实例化物体
-        /// </summary>
+
         public void GenerateMap()
         {
             if (maps == null || maps.Length == 0)
@@ -190,7 +186,6 @@ namespace RobotSimulation.MapGeneration
             _obstacleObjects.Clear();
             System.Random prng = new System.Random(currentMap.seed);
             
-            // 生成坐标
             allTileCoords = new List<Coord>();
             for (int x = 0; x < currentMap.mapSize.x; x++)
             {
@@ -201,7 +196,7 @@ namespace RobotSimulation.MapGeneration
             }
             shuffledTileCoords = new Queue<Coord>(Utility.ShuffleArray(allTileCoords.ToArray(), currentMap.seed));
             
-            // 创建地图容器对象
+            // 每次重新生成都替换容器，避免旧障碍物残留到 ROS map
             string holderName = "Generated Map";
             Transform mapHolder = null;
             if (instantiateObjects)
@@ -216,7 +211,6 @@ namespace RobotSimulation.MapGeneration
                 _mapHolder = mapHolder;
             }
             
-            // 生成地板
             for (int x = 0; x < currentMap.mapSize.x; x++)
             {
                 for (int y = 0; y < currentMap.mapSize.y; y++)
@@ -232,7 +226,6 @@ namespace RobotSimulation.MapGeneration
                 }
             }
             
-            // 生成障碍物
             bool[,] obstacleMap = new bool[currentMap.mapSize.x, currentMap.mapSize.y];
             
             int obstacleCount = (int)(currentMap.mapSize.x * currentMap.mapSize.y * currentMap.obstaclePercent);
@@ -278,7 +271,6 @@ namespace RobotSimulation.MapGeneration
             
             shuffledOpenTileCoords = new Queue<Coord>(Utility.ShuffleArray(allOpenCoords.ToArray(), currentMap.seed));
 
-            // 存储障碍物地图数据并通知订阅者
             GeneratedObstacleMap = obstacleMap;
             Debug.Log($"地图生成完成，尺寸：{currentMap.mapSize.x}x{currentMap.mapSize.y}，障碍物数量：{currentObstacleCount}");
             OnMapGenerated?.Invoke();
@@ -288,10 +280,9 @@ namespace RobotSimulation.MapGeneration
         
         #region 地图验证和实用方法
         
-        // 使用洪水填充算法验证地图连通性，确保玩家能到达所有区域
+        // 只接受全连通地图，避免 Nav2 目标吸附到逻辑上不可达的孤岛
         private bool MapIsFullyAccessible(bool[,] obstacleMap, int currentObstacleCount)
         {
-            // 初始化访问标记数组和BFS队列
             bool[,] mapFlags = new bool[obstacleMap.GetLength(0), obstacleMap.GetLength(1)];
             Queue<Coord> queue = new Queue<Coord>();
             queue.Enqueue(currentMap.mapCentre);
@@ -361,30 +352,20 @@ namespace RobotSimulation.MapGeneration
         
         #region 数据导出
         
-        /// <summary>
-        /// 获取生成的障碍物网格（true表示障碍物）
-        /// </summary>
+        // true 表示障碍物，供 ROS OccupancyGrid 和动态障碍编辑共用
         public bool[,] GeneratedObstacleMap { get; private set; }
-        
-        /// <summary>
-        /// 获取地图尺寸（网格单元数）
-        /// </summary>
+
         public Coord MapSize
         {
             get { return currentMap != null ? currentMap.mapSize : new Coord(0, 0); }
         }
         
-        /// <summary>
-        /// 获取地图中心世界坐标
-        /// </summary>
         public Vector3 MapCentreWorld
         {
             get { return CoordToPosition(MapSize.x / 2, MapSize.y / 2); }
         }
         
-        /// <summary>
-        /// 将世界坐标转换为网格坐标
-        /// </summary>
+        // 点击、目标吸附和动态障碍都通过同一套取整规则进入网格
         public Coord WorldToGrid(Vector3 worldPos)
         {
             int x = Mathf.RoundToInt(worldPos.x / tileSize + (MapSize.x - 1) / 2f);
@@ -394,9 +375,6 @@ namespace RobotSimulation.MapGeneration
             return new Coord(x, y);
         }
 
-        /// <summary>
-        /// 判断网格是否在地图内且不是障碍物。
-        /// </summary>
         public bool IsOpenTile(Coord gridCoord)
         {
             if (GeneratedObstacleMap == null)
@@ -408,15 +386,12 @@ namespace RobotSimulation.MapGeneration
             return !GeneratedObstacleMap[gridCoord.x, gridCoord.y];
         }
 
-        /// <summary>
-        /// 判断格子是否可作为导航目标使用。
-        /// clearanceRadiusTiles > 0 时，要求周围若干格内都没有障碍物。
-        /// </summary>
         public bool IsGoalNavigableTile(Coord gridCoord, int clearanceRadiusTiles = 0)
         {
             if (!IsOpenTile(gridCoord))
                 return false;
 
+            // 目标点需要预留车体净空，不能只检查中心格
             for (int dx = -clearanceRadiusTiles; dx <= clearanceRadiusTiles; dx++)
             {
                 for (int dy = -clearanceRadiusTiles; dy <= clearanceRadiusTiles; dy++)
@@ -430,9 +405,6 @@ namespace RobotSimulation.MapGeneration
             return true;
         }
 
-        /// <summary>
-        /// 从给定网格开始，搜索最近的可通行格子。
-        /// </summary>
         public bool TryFindNearestOpenTile(
             Coord start,
             out Coord result,
@@ -455,6 +427,7 @@ namespace RobotSimulation.MapGeneration
                 return true;
             }
 
+            // 按方环向外找，优先保留用户点击点附近的导航意图
             for (int radius = 1; radius <= maxSearchRadius; radius++)
             {
                 for (int dx = -radius; dx <= radius; dx++)
@@ -476,10 +449,7 @@ namespace RobotSimulation.MapGeneration
 
             return false;
         }
-        
-        /// <summary>
-        /// 将网格坐标转换为世界坐标
-        /// </summary>
+
         public Vector3 GridToWorld(Coord gridCoord)
         {
             return CoordToPosition(gridCoord.x, gridCoord.y);
@@ -487,9 +457,6 @@ namespace RobotSimulation.MapGeneration
 
         public Transform MapHolder => _mapHolder;
 
-        /// <summary>
-        /// 反查某个 Transform 是否是已追踪的障碍物，是则输出其网格坐标。
-        /// </summary>
         public bool TryGetObstacleAt(Transform t, out Coord coord)
         {
             foreach (var kv in _obstacleObjects)
@@ -500,9 +467,6 @@ namespace RobotSimulation.MapGeneration
             return false;
         }
 
-        /// <summary>
-        /// 运行时动态设置某格的障碍物状态，并触发地图更新事件。
-        /// </summary>
         public void SetObstacleAtGrid(Coord coord, bool isObstacle)
         {
             if (GeneratedObstacleMap == null || currentMap == null) return;
@@ -513,6 +477,7 @@ namespace RobotSimulation.MapGeneration
                 if (GeneratedObstacleMap[coord.x, coord.y]) return;
                 if (obstaclePrefab == null || _mapHolder == null) return;
 
+                // 动态障碍使用固定中间高度，避免运行时编辑引入额外随机性
                 float height = (currentMap.minObstacleHeight + currentMap.maxObstacleHeight) * 0.5f;
                 Vector3 pos = CoordToPosition(coord.x, coord.y) + Vector3.up * height * 0.5f;
                 Transform newObs = Instantiate(obstaclePrefab, pos, Quaternion.identity);

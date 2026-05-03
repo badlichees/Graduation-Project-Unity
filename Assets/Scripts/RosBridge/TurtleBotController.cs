@@ -2,9 +2,7 @@ using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Geometry;
 
-/// <summary>
-/// 接收 /cmd_vel 并驱动机器人底盘。
-/// </summary>
+// Nav2 只发布底盘速度，Unity 侧仍需要把 /cmd_vel 适配成左右轮关节速度
 public class TurtleBotController : MonoBehaviour
 {
     [Header("Wheel References")]
@@ -12,28 +10,28 @@ public class TurtleBotController : MonoBehaviour
     public ArticulationBody wheelRightJoint;
 
     [Header("Robot Specs")]
-    public float wheelRadius    = 0.033f;  // 单位：m
-    public float wheelSeparation = 0.160f; // 单位：m
+    public float wheelRadius = 0.033f;
+    public float wheelSeparation = 0.160f;
 
     [Header("Physics Tuning")]
-    public float driveDamping   = 1000f;
+    public float driveDamping = 1000f;
     public float driveForceLimit = 2000f;
 
     [Header("Direction Fix")]
-    [Tooltip("旋转方向反时启用。")]
+    [Tooltip("旋转方向反时启用")]
     public bool invertAngular = false;
-    [Tooltip("前进方向反时启用。")]
+    [Tooltip("前进方向反时启用")]
     public bool invertLinear  = false;
-    [Tooltip("左轮方向反时启用。")]
+    [Tooltip("左轮方向反时启用")]
     public bool invertLeftWheel = false;
-    [Tooltip("右轮方向反时启用。")]
+    [Tooltip("右轮方向反时启用")]
     public bool invertRightWheel = false;
 
     [Header("ROS Settings")]
     public string cmdVelTopic = "/cmd_vel";
 
     [Header("Debug")]
-    [Tooltip("输出控制调试日志。")]
+    [Tooltip("输出控制调试日志")]
     public bool enableDebugLogs = false;
     [Min(0.1f)]
     public float debugLogInterval = 0.5f;

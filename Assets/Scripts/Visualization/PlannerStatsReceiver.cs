@@ -3,10 +3,7 @@ using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Std;
 using UnityEngine;
 
-/// <summary>
-/// 订阅 /planner_stats（std_msgs/String JSON），解析后写入 PlannerStatsStore。
-/// 挂到场景中任意 GameObject 上（推荐和 GoalPublisher 同一对象）。
-/// </summary>
+// ROS 端输出的是固定字段 JSON，用轻量解析保持 Unity 侧依赖最少
 public class PlannerStatsReceiver : MonoBehaviour
 {
     public const string StatsTopic = "/planner_stats";
@@ -23,7 +20,6 @@ public class PlannerStatsReceiver : MonoBehaviour
         if (r != null) PlannerStatsStore.Record(r);
     }
 
-    // 手动解析固定格式 JSON，避免引入外部依赖
     static PlannerRunRecord ParseJson(string json)
     {
         try

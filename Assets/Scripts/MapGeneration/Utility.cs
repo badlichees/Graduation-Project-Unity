@@ -4,9 +4,7 @@ namespace RobotSimulation.MapGeneration
 {
     public static class Utility
     {
-        /// <summary>
-        /// 使用Fisher-Yates洗牌算法打乱数组
-        /// </summary>
+        // 传入 seed 保证同一张地图在 Unity 和 ROS 调试中可复现
         public static T[] ShuffleArray<T>(T[] array, int seed)
         {
             System.Random prng = new System.Random(seed);

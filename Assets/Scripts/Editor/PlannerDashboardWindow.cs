@@ -2,11 +2,6 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-/// <summary>
-/// 路径规划算法性能面板。
-/// 菜单：Tools / 算法性能面板（快捷键 Ctrl+Shift+P）
-/// Play Mode 下实时刷新，显示各算法规划次数、耗时、路径长度、节点扩展数。
-/// </summary>
 public class PlannerDashboardWindow : EditorWindow
 {
     static readonly string[] Algorithms =
@@ -56,8 +51,6 @@ public class PlannerDashboardWindow : EditorWindow
         DrawButtons();
     }
 
-    // ── 顶部标题栏 ────────────────────────────────────────────────────────────
-
     void DrawHeader()
     {
         EditorGUILayout.Space(4);
@@ -73,18 +66,15 @@ public class PlannerDashboardWindow : EditorWindow
         EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1), new Color(0.4f, 0.4f, 0.4f));
     }
 
-    // ── 数据表格 ──────────────────────────────────────────────────────────────
-
     void DrawTable()
     {
-        // 列头
         using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
         {
-            ColHeader("算法",          70);
-            ColHeader("规划次数",       52);
-            ColHeader("耗时 avg(ms)",  100);
-            ColHeader("路径 avg (m)",   96);
-            ColHeader("节点 avg",       80);
+            ColHeader("算法", 70);
+            ColHeader("规划次数", 52);
+            ColHeader("耗时 avg(ms)", 100);
+            ColHeader("路径 avg (m)", 96);
+            ColHeader("节点 avg", 80);
         }
 
         var data = PlannerStatsStore.Data;
@@ -98,7 +88,6 @@ public class PlannerDashboardWindow : EditorWindow
                 ? new Color(0.22f, 0.22f, 0.22f)
                 : new Color(0.25f, 0.25f, 0.25f));
 
-            // 算法色块 + 名称
             var dotRect = GUILayoutUtility.GetRect(10, 21, GUILayout.Width(10));
             EditorGUI.DrawRect(new Rect(dotRect.x + 1, dotRect.y + 5, 8, 11), dot);
             Cell(algo, 60, TextAnchor.MiddleLeft);
@@ -120,8 +109,6 @@ public class PlannerDashboardWindow : EditorWindow
         }
     }
 
-    // ── 最近一次规划结果 ──────────────────────────────────────────────────────
-
     void DrawLastRecord()
     {
         var r = PlannerStatsStore.LastRecord;
@@ -141,11 +128,9 @@ public class PlannerDashboardWindow : EditorWindow
             new GUIStyle(EditorStyles.label) { richText = true });
     }
 
-    // ── 操作按钮 ──────────────────────────────────────────────────────────────
-
     void DrawButtons()
     {
-        // 机器人重置行（仅 Play Mode 可用）
+        // Reset 依赖场景运行时单例，编辑模式下只显示不可用状态
         using (new EditorGUILayout.HorizontalScope())
         {
             bool canReset = EditorApplication.isPlaying && RobotResetController.Instance != null;
@@ -162,7 +147,6 @@ public class PlannerDashboardWindow : EditorWindow
 
         EditorGUILayout.Space(2);
 
-        // 数据操作行
         using (new EditorGUILayout.HorizontalScope())
         {
             int total = 0;
@@ -182,8 +166,6 @@ public class PlannerDashboardWindow : EditorWindow
                 ExportCSV();
         }
     }
-
-    // ── 导出 ──────────────────────────────────────────────────────────────────
 
     void ExportCSV()
     {
@@ -208,8 +190,6 @@ public class PlannerDashboardWindow : EditorWindow
         Debug.Log($"PlannerDashboard: CSV 已保存至 {path}");
         EditorUtility.RevealInFinder(path);
     }
-
-    // ── 布局辅助 ──────────────────────────────────────────────────────────────
 
     static GUIStyle cellStyle;
 

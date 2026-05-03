@@ -19,9 +19,7 @@ public static class PlannerStatsStore
     public static readonly Dictionary<string, Entry> Data = new();
     public static PlannerRunRecord LastRecord;
 
-    /// <summary>
-    /// 设为 true 时，下一条 /planner_stats 将被静默丢弃（用于压制 Reset 后触发的假规划）。
-    /// </summary>
+    // 重置机器人时会向 Nav2 发静默 goal，这条结果不应污染实验数据
     public static bool SuppressNextRecord { get; set; }
 
     public static event System.Action OnUpdated;

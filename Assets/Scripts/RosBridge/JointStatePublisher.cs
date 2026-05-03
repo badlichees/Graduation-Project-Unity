@@ -5,9 +5,6 @@ using RosMessageTypes.Std;
 using RosMessageTypes.BuiltinInterfaces;
 using System;
 
-/// <summary>
-/// 发布轮子关节状态。
-/// </summary>
 public class JointStatePublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
@@ -69,9 +66,6 @@ public class JointStatePublisher : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 更新关节数据。
-    /// </summary>
     void UpdateJointStates()
     {
         var now = DateTime.UtcNow;
@@ -107,9 +101,6 @@ public class JointStatePublisher : MonoBehaviour
         lastRightAngle = rightAngle;
     }
 
-    /// <summary>
-    /// 读取轮子角度。
-    /// </summary>
     float GetWheelAngle(ArticulationBody wheel)
     {
         if (wheel == null)
@@ -118,9 +109,6 @@ public class JointStatePublisher : MonoBehaviour
         return wheel.transform.localEulerAngles.x * Mathf.Deg2Rad;
     }
 
-    /// <summary>
-    /// 发布关节状态。
-    /// </summary>
     void PublishJointStates()
     {
         ros.Publish(topicName, jointStateMsg);

@@ -1,11 +1,7 @@
 using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Play Mode 内一键重置机器人到初始位姿，同时清空路径线和目标标记。
-/// 挂到场景中任意 GameObject（推荐与 GoalPublisher 同一对象）。
-/// 快捷键默认 R，也可在 EditorWindow 中点按钮触发。
-/// </summary>
+// 重置后主动给 Nav2 一个初始位姿 goal，避免旧 goal 继续驱动车体
 public class RobotResetController : MonoBehaviour
 {
     [Header("Robot")]
@@ -27,7 +23,6 @@ public class RobotResetController : MonoBehaviour
 
     void Start()
     {
-        // Play 启动时取消 Nav2 可能残留的旧 goal（应对上次 Play 未停 ROS 的情况）
         StartCoroutine(SendStopGoal());
     }
 
@@ -44,7 +39,7 @@ public class RobotResetController : MonoBehaviour
 
         if (robotRoot != null)
         {
-            // 找到 isRoot 的 ArticulationBody（URDF 导入后即根连杆）
+            // URDF 导入层级较深，真正可 Teleport 的通常是 isRoot 关节
             foreach (var ab in robotRoot.GetComponentsInChildren<ArticulationBody>())
             {
                 if (ab.isRoot) { rootBody = ab; break; }
@@ -68,7 +63,6 @@ public class RobotResetController : MonoBehaviour
             ResetPose();
     }
 
-    /// <summary>重置机器人到初始位姿，并强制停止 Nav2 导航。</summary>
     public void ResetPose()
     {
         if (rootBody == null)
@@ -77,15 +71,11 @@ public class RobotResetController : MonoBehaviour
             return;
         }
 
-        // 1. 传送机器人
         rootBody.TeleportRoot(initialPos, initialRot);
 
-        // 2. 清视觉状态
         if (pathVisualizer != null) pathVisualizer.ClearPath();
         if (goalPublisher != null)  goalPublisher.ClearGoalMarker();
 
-        // 3. 等 OdometryPublisher 的 FixedUpdate 发出新里程计后，
-        //    再向 Nav2 发布"停在原地"的静默目标，强制取消当前 action goal
         StartCoroutine(SendStopGoal());
 
         Debug.Log($"RobotResetController: 机器人已重置至 {initialPos}");
@@ -93,7 +83,7 @@ public class RobotResetController : MonoBehaviour
 
     IEnumerator SendStopGoal()
     {
-        // 等一个物理帧，确保 OdometryPublisher 已将新位姿发给 ROS
+        // 等一个物理帧，让 odom 先发布重置后的位姿
         yield return new WaitForFixedUpdate();
 
         if (goalPublisher != null)

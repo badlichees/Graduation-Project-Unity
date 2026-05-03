@@ -7,7 +7,6 @@ using RosMessageTypes.BuiltinInterfaces;
 using System;
 using RobotSimulation.MapGeneration;
 
-/// <summary>发布 Nav2 目标点。</summary>
 public class GoalPublisher : MonoBehaviour
 {
     [Header("ROS Settings")]
@@ -20,7 +19,7 @@ public class GoalPublisher : MonoBehaviour
     public Transform robotTransform;
 
     [Header("Goal Input")]
-    [Tooltip("目标点 Unity 世界系 (X, Z)，单位米。")]
+    [Tooltip("目标点 Unity 世界系 (X, Z)，单位米")]
     public Vector2 targetPositionXZ = Vector2.zero;
     public KeyCode publishKey = KeyCode.Space;
     public bool allowMouseClick = false;
@@ -36,9 +35,9 @@ public class GoalPublisher : MonoBehaviour
     [Min(0f)] public float autoPublishDelay = 2.0f;
 
     [Header("Algorithm Selector")]
-    [Tooltip("与 Nav2 planner_server 中注册的插件 ID 一一对应。")]
+    [Tooltip("与 Nav2 planner_server 中注册的插件 ID 对应")]
     public string[] availableAlgorithms = { "Astar", "Dijkstra", "Greedy", "NavFn", "RRTStar", "DLite", "JPS", "WAStar" };
-    [Tooltip("当前选中算法的下标（运行时按 Tab 切换）。")]
+    [Tooltip("当前选中算法的下标（运行时按 Tab 切换）")]
     public int selectedAlgorithmIndex = 0;
 
     public const string PlannerSelectorTopic = "/planner_selector_unity";
@@ -117,7 +116,7 @@ public class GoalPublisher : MonoBehaviour
     {
         if (Camera.main == null)
         {
-            Debug.LogWarning("GoalPublisher: 未找到 Main Camera。");
+            Debug.LogWarning("GoalPublisher: 未找到 Main Camera");
             return;
         }
 
@@ -136,7 +135,7 @@ public class GoalPublisher : MonoBehaviour
 
         Vector3 goalPoint = SnapGoalToNearestOpenCell(hitPoint);
 
-        // 保持与 inspector 路径一致：按 Space 或 map 刷新时仍指向该点
+        // 鼠标点选也写回预览状态，避免下一次 Space 发布旧 Inspector 坐标
         currentGoalPoint = goalPoint;
         hasGoalPoint = true;
 
@@ -155,8 +154,7 @@ public class GoalPublisher : MonoBehaviour
             maxSnapSearchRadius,
             goalClearanceRadiusTiles))
         {
-            Debug.LogWarning(
-                $"GoalPublisher: 未能在半径 {maxSnapSearchRadius} 内找到满足净空要求的可达格，使用原始点击点。");
+            Debug.LogWarning($"GoalPublisher: 未能在半径 {maxSnapSearchRadius} 内找到满足净空要求的可达格，使用原始点击点");
             return hitPoint;
         }
 
@@ -175,6 +173,7 @@ public class GoalPublisher : MonoBehaviour
     {
         MoveMarker(goalPoint);
 
+        // Unity 地面是 XZ，ROS 地图是 XY；和 map/odom 发布端保持同一套轴向约定
         double rosX = goalPoint.z;
         double rosY = -goalPoint.x;
         double yawROS = ComputeGoalYawROS(goalPoint);
@@ -208,20 +207,15 @@ public class GoalPublisher : MonoBehaviour
             $"yaw={yawROS * Mathf.Rad2Deg:F1}°");
     }
 
-    /// <summary>
-    /// 向 Nav2 发布静默目标（不显示 marker、不计入导航追踪）。
-    /// 目标点设为机器人当前重置位置，促使 Nav2 立即取消当前 goal。
-    /// </summary>
     public void PublishSilentGoal(Vector3 unityPos, Quaternion unityRot)
     {
         if (ros == null) return;
-        // 压制这次假规划触发的 /planner_stats，避免污染统计和"最近"显示
+        // 重置机器人会触发一次“取消旧导航”的 goal，不应计入算法性能统计
         PlannerStatsStore.SuppressNextRecord = true;
 
         double rosX = unityPos.z;
         double rosY = -unityPos.x;
 
-        // 从四元数提取 yaw 避免 eulerAngles 奇异
         float yawUnity = Mathf.Atan2(
             2f * (unityRot.w * unityRot.y + unityRot.x * unityRot.z),
             1f - 2f * (unityRot.y * unityRot.y + unityRot.z * unityRot.z));
@@ -309,15 +303,14 @@ public class GoalPublisher : MonoBehaviour
     public void ClearGoalMarker()
     {
         if (goalMarker != null) goalMarker.SetActive(false);
-        // hasGoalPoint 保持不变：重置位姿不清除目标记忆，Space 键仍可重发上一个目标
     }
 
     static TimeMsg MakeStamp()
     {
-        var now   = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
         var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var ts    = now - epoch;
-        int sec   = (int)ts.TotalSeconds;
+        var ts = now - epoch;
+        int sec = (int)ts.TotalSeconds;
         uint nsec = (uint)((ts.TotalSeconds - sec) * 1e9);
         return new TimeMsg { sec = sec, nanosec = nsec };
     }
@@ -344,6 +337,7 @@ public class GoalPublisher : MonoBehaviour
     void PublishPlannerSelection()
     {
         if (ros == null || availableAlgorithms == null || availableAlgorithms.Length == 0) return;
+        // 周期发布选择结果，允许 ROS 端节点后启动时也能拿到当前算法
         ros.Publish(PlannerSelectorTopic, new StringMsg(ActiveAlgorithm));
         Debug.Log($"GoalPublisher: 规划算法已切换 → {ActiveAlgorithm}");
     }

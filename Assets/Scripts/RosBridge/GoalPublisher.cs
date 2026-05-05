@@ -85,8 +85,13 @@ public class GoalPublisher : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Tab))
             CycleAlgorithm();
 
-        if (Input.GetKeyDown(publishKey) && hasGoalPoint)
-            PublishGoalPoint(currentGoalPoint, "inspector");
+        if (Input.GetKeyDown(publishKey))
+        {
+            // 发布前重新计算，避免算法切换或上一轮测试留下旧的缓存目标点
+            RefreshTargetPreview();
+            if (hasGoalPoint)
+                PublishGoalPoint(currentGoalPoint, "inspector");
+        }
 
         if (!allowMouseClick || !Input.GetMouseButtonDown(0)) return;
 
@@ -135,8 +140,10 @@ public class GoalPublisher : MonoBehaviour
 
         Vector3 goalPoint = SnapGoalToNearestOpenCell(hitPoint);
 
-        // 鼠标点选也写回预览状态，避免下一次 Space 发布旧 Inspector 坐标
+        // 鼠标点选也写回 Inspector 目标，便于后续切换算法后用 Space 重复同一目标
         currentGoalPoint = goalPoint;
+        targetPositionXZ = new Vector2(goalPoint.x, goalPoint.z);
+        lastPreviewedXZ = targetPositionXZ;
         hasGoalPoint = true;
 
         PublishGoalPoint(goalPoint, "mouse");
@@ -147,6 +154,7 @@ public class GoalPublisher : MonoBehaviour
         if (mapGenerator == null || mapGenerator.GeneratedObstacleMap == null)
             return hitPoint;
 
+        bool outsideMap = IsOutsideMapBounds(hitPoint, out Vector2 min, out Vector2 max);
         Coord clickedGrid = mapGenerator.WorldToGrid(hitPoint);
         if (!mapGenerator.TryFindNearestOpenTile(
             clickedGrid,
@@ -159,7 +167,14 @@ public class GoalPublisher : MonoBehaviour
         }
 
         Vector3 snappedWorld = mapGenerator.GridToWorld(snappedGrid);
-        if (snappedGrid != clickedGrid)
+        if (outsideMap)
+        {
+            Debug.LogWarning(
+                $"GoalPublisher: 目标 Unity({hitPoint.x:F2}, {hitPoint.z:F2}) 超出地图范围 " +
+                $"X[{min.x:F2}, {max.x:F2}], Z[{min.y:F2}, {max.y:F2}]，" +
+                $"已使用最近可导航格 Unity({snappedWorld.x:F2}, {snappedWorld.z:F2})");
+        }
+        else if (snappedGrid != clickedGrid)
         {
             Debug.Log(
                 $"GoalPublisher: 目标已吸附到最近空闲格 " +
@@ -298,6 +313,22 @@ public class GoalPublisher : MonoBehaviour
 
         goalMarker.transform.position = new Vector3(groundPoint.x, 0.02f, groundPoint.z);
         goalMarker.SetActive(true);
+    }
+
+    bool IsOutsideMapBounds(Vector3 point, out Vector2 min, out Vector2 max)
+    {
+        min = Vector2.zero;
+        max = Vector2.zero;
+
+        if (mapGenerator == null || mapGenerator.MapSize.x <= 0 || mapGenerator.MapSize.y <= 0)
+            return false;
+
+        float halfX = mapGenerator.MapSize.x * mapGenerator.tileSize * 0.5f;
+        float halfZ = mapGenerator.MapSize.y * mapGenerator.tileSize * 0.5f;
+        min = new Vector2(-halfX, -halfZ);
+        max = new Vector2(halfX, halfZ);
+
+        return point.x < min.x || point.x > max.x || point.z < min.y || point.z > max.y;
     }
 
     public void ClearGoalMarker()

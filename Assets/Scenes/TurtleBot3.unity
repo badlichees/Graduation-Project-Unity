@@ -270,7 +270,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 794710433}
-  - component: {fileID: 794710432}
   - component: {fileID: 794710431}
   - component: {fileID: 794710430}
   m_Layer: 0
@@ -325,20 +324,6 @@ MonoBehaviour:
   nav2StatusTopic: /navigate_to_pose/_action/status
   nav2ClockSkewToleranceSeconds: 2
   statsFlushDelayAfterSuccess: 0.2
---- !u!114 &794710432
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 794710429}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 47ff161c1916b60498b3e15d6fb80959, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  robotRoot: {fileID: 0}
-  obstacleNameContains: Obstacle
 --- !u!4 &794710433
 Transform:
   m_ObjectHideFlags: 0
@@ -882,7 +867,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1598164490}
   - component: {fileID: 1598164489}
-  - component: {fileID: 1598164488}
   - component: {fileID: 1598164491}
   - component: {fileID: 1598164492}
   - component: {fileID: 1598164494}
@@ -894,20 +878,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1598164488
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1598164487}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 31cf89d02912dfb4cace48dddcd2656c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mapGenerator: {fileID: 1598164489}
-  generateOnStart: 0
 --- !u!114 &1598164489
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -48,6 +48,8 @@ InitTestScene*.unity*
 
 # MCP 截图
 /Screenshots/
+/[Aa]ssets/Screenshots/
+/[Aa]ssets/Screenshots.meta
 
 # IDE
 .vscode/*

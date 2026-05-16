@@ -87,14 +87,18 @@ Prefab: Assets/Resources/ROSConnectionPrefab.prefab
 | 动态障碍 | `Assets/Scripts/MapGeneration/DynamicObstacleEditor.cs` | 运行时右键添加或删除障碍物 |
 | 地图发布 | `Assets/Scripts/RosBridge/OccupancyGridPublisher.cs` | 将 Unity 地图发布为 `/map_raw` |
 | 目标发布 | `Assets/Scripts/RosBridge/GoalPublisher.cs` | 发布 `/goal_pose`，并发布算法选择 |
+| 参数发布 | `Assets/Scripts/RosBridge/PlannerParameterPublisher.cs` | 将 Unity 面板中的规划参数发布到 ROS2 |
 | 速度控制 | `Assets/Scripts/RosBridge/TurtleBotController.cs` | 订阅 `/cmd_vel` 并驱动左右轮 |
 | 里程计 | `Assets/Scripts/RosBridge/OdometryPublisher.cs` | 发布 `/odom` |
 | 雷达 | `Assets/Scripts/RosBridge/LidarPublisher.cs` | 通过 Raycast 发布 `/scan` |
 | IMU | `Assets/Scripts/RosBridge/ImuPublisher.cs` | 发布 `/imu` |
 | 关节状态 | `Assets/Scripts/RosBridge/JointStatePublisher.cs` | 发布 `/joint_states` |
 | 路径显示 | `Assets/Scripts/Visualization/PathVisualizer.cs` | 订阅 `/plan` 并显示路径 |
-| 统计接收 | `Assets/Scripts/Visualization/PlannerStatsReceiver.cs` | 订阅 `/planner_stats` |
+| 统计接收 | `Assets/Scripts/Visualization/PlannerStatsReceiver.cs` | 订阅 `/planner_stats`，到达目标后才提交到面板 |
+| 运行指标 | `Assets/Scripts/Visualization/CollisionCounter.cs` / `NavigationRunMonitor.cs` | 判定 Goal succeed，统计运行时间和碰撞次数 |
 | 统计面板 | `Assets/Scripts/Editor/PlannerDashboardWindow.cs` | 显示并导出算法统计结果 |
+| 参数面板 | `Assets/Scripts/Editor/PlannerParameterWindow.cs` | 调整 WA*、RRT* 和 DWB 参数 |
+| 地图参数面板 | `Assets/Scripts/Editor/MapParameterWindow.cs` | 运行时调整地图种子、障碍物密度和保护半径 |
 | 机器人重置 | `Assets/Scripts/RosBridge/RobotResetController.cs` | 重置 TurtleBot3 位姿并清理旧路径 |
 
 主要场景：
@@ -130,11 +134,13 @@ ros2 launch tb3_unity_nav unity_nav2.launch.py
 |---|---|
 | 发布目标点 | 修改 `GoalPublisher.targetPositionXZ` 后按 `Space` |
 | 切换规划算法 | Play Mode 下按 `Tab` |
+| 调整规划参数 | Unity 菜单 `Tools/规划参数面板` |
+| 调整地图参数 | Unity 菜单 `Tools/地图参数面板` |
 | 添加或删除障碍物 | 鼠标右键点击地图 |
 | 重置机器人 | 按 `R` |
 | 查看路径 | 场景中观察彩色 LineRenderer |
 | 打开统计面板 | Unity 菜单 `Tools/算法性能面板` |
-| 导出统计数据 | 统计面板中点击 `导出 CSV` |
+| 导出统计数据 | 统计面板中点击 `导出 CSV`，包含规划耗时、运行时间、路径长度、碰撞次数等指标 |
 
 当前支持的算法：
 

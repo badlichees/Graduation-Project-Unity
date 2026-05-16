@@ -35,9 +35,19 @@ public class TurtleBotController : MonoBehaviour
     public bool enableDebugLogs = false;
     [Min(0.1f)]
     public float debugLogInterval = 0.5f;
+    public bool warnOnCmdVelTimeout = true;
+    [Min(0.1f)]
+    public float cmdVelTimeoutSeconds = 1.5f;
+    public bool warnOnZeroCmdVel = true;
+    [Min(0.1f)]
+    public float zeroCmdVelWarningSeconds = 1.0f;
 
     private ROSConnection ros;
     private float nextDebugLogTime;
+    private float lastCmdVelTime = -1f;
+    private float zeroCmdVelSince = -1f;
+    private bool warnedCmdVelTimeout;
+    private bool warnedZeroCmdVel;
 
     void Start()
     {
@@ -50,10 +60,19 @@ public class TurtleBotController : MonoBehaviour
         Debug.Log($"TurtleBotController: 已订阅 {cmdVelTopic}，直接处理 cmd_vel");
     }
 
+    void Update()
+    {
+        MaybeWarnCommandTimeout();
+    }
+
     void OnCmdVelReceived(TwistMsg msg)
     {
+        lastCmdVelTime = Time.time;
+        warnedCmdVelTimeout = false;
+
         float linear  = (float)msg.linear.x  * (invertLinear  ? -1f : 1f);
         float angular = (float)msg.angular.z * (invertAngular ? -1f : 1f);
+        TrackZeroCommand(linear, angular);
 
         float leftRadPS  = (linear - angular * wheelSeparation * 0.5f) / wheelRadius;
         float rightRadPS = (linear + angular * wheelSeparation * 0.5f) / wheelRadius;
@@ -102,5 +121,52 @@ public class TurtleBotController : MonoBehaviour
             $"invertLinear={invertLinear}, invertAngular={invertAngular}, " +
             $"invertLeftWheel={invertLeftWheel}, invertRightWheel={invertRightWheel}"
         );
+    }
+
+    void MaybeWarnCommandTimeout()
+    {
+        if (!warnOnCmdVelTimeout || warnedCmdVelTimeout || !PlannerStatsStore.HasActiveRun)
+            return;
+
+        float elapsed = lastCmdVelTime < 0f
+            ? PlannerStatsStore.ActiveRunSeconds
+            : Time.time - lastCmdVelTime;
+
+        if (elapsed < cmdVelTimeoutSeconds)
+            return;
+
+        warnedCmdVelTimeout = true;
+        Debug.LogWarning(
+            $"TurtleBotController: active goal but no {cmdVelTopic} for {elapsed:F1}s. " +
+            "Nav2 may have stopped or disconnected.");
+    }
+
+    void TrackZeroCommand(float linear, float angular)
+    {
+        if (!warnOnZeroCmdVel || !PlannerStatsStore.HasActiveRun)
+        {
+            zeroCmdVelSince = -1f;
+            warnedZeroCmdVel = false;
+            return;
+        }
+
+        bool isZero = Mathf.Abs(linear) < 1e-4f && Mathf.Abs(angular) < 1e-4f;
+        if (!isZero)
+        {
+            zeroCmdVelSince = -1f;
+            warnedZeroCmdVel = false;
+            return;
+        }
+
+        if (zeroCmdVelSince < 0f)
+            zeroCmdVelSince = Time.time;
+
+        if (warnedZeroCmdVel || Time.time - zeroCmdVelSince < zeroCmdVelWarningSeconds)
+            return;
+
+        warnedZeroCmdVel = true;
+        Debug.LogWarning(
+            $"TurtleBotController: receiving zero {cmdVelTopic} for " +
+            $"{Time.time - zeroCmdVelSince:F1}s while an active goal is running.");
     }
 }

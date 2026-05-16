@@ -228,6 +228,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &529524268 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1127697734294368056, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+  m_PrefabInstance: {fileID: 311404324556575216}
+  m_PrefabAsset: {fileID: 0}
 --- !u!21 &592256059
 Material:
   serializedVersion: 8
@@ -256,6 +261,99 @@ Material:
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
+--- !u!1 &794710429
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 794710433}
+  - component: {fileID: 794710432}
+  - component: {fileID: 794710431}
+  - component: {fileID: 794710430}
+  m_Layer: 0
+  m_Name: ExperimentRuntime
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &794710430
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 794710429}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f242dca8c80caa4aaeb020589edd818, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /planner_param_updates
+  autoPublishOnStart: 1
+  weightedAStarWeight: 2.5
+  rrtStarMaxIterations: 5000
+  rrtStarStepSize: 0.5
+  rrtStarSearchRadius: 1.5
+  rrtStarGoalTolerance: 0.5
+  rrtStarGoalBias: 0.1
+  maxVelX: 0.22
+  maxVelTheta: 1
+  simTime: 1
+  vxSamples: 20
+  vthetaSamples: 30
+--- !u!114 &794710431
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 794710429}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58265141205075c41934bf3f57d2d189, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  goalPublisher: {fileID: 0}
+  robotTransform: {fileID: 0}
+  goalTolerance: 0.18
+  maxRunSeconds: 180
+  completeOnNav2Succeeded: 1
+  nav2StatusTopic: /navigate_to_pose/_action/status
+  nav2ClockSkewToleranceSeconds: 2
+  statsFlushDelayAfterSuccess: 0.2
+--- !u!114 &794710432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 794710429}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47ff161c1916b60498b3e15d6fb80959, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotRoot: {fileID: 0}
+  obstacleNameContains: Obstacle
+--- !u!4 &794710433
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 794710429}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1096915054
 GameObject:
   m_ObjectHideFlags: 0
@@ -315,7 +413,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.01
   far clip plane: 1000
   field of view: 60
   orthographic: 0
@@ -344,11 +442,11 @@ Transform:
   m_GameObject: {fileID: 1096915054}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.1, z: -0.5}
+  m_LocalPosition: {x: 0, y: 0.18, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 529524268}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1096915058
 MonoBehaviour:
@@ -406,9 +504,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e02bd3f9dc5bf384590f04076f92e90a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 1975805391}
-  worldOffset: {x: 0, y: 1.2, z: -1.8}
-  followLerp: 0.15
+  firstPersonOffset: {x: 0, y: 0.18, z: 0}
+  nearClipPlane: 0.01
 --- !u!4 &1140081163 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3885009520023495739, guid: 7e8ecfd17cd58c247916864b74797f3f, type: 3}
@@ -788,7 +885,6 @@ GameObject:
   - component: {fileID: 1598164488}
   - component: {fileID: 1598164491}
   - component: {fileID: 1598164492}
-  - component: {fileID: 1598164493}
   - component: {fileID: 1598164494}
   - component: {fileID: 1598164495}
   m_Layer: 0
@@ -841,6 +937,14 @@ MonoBehaviour:
   tileSize: 0.5
   generateOnStart: 1
   instantiateObjects: 1
+  goalPublisher: {fileID: 1598164492}
+  protectedGoalRadiusTiles: 1
+  robotTransform: {fileID: 529524268}
+  protectedRobotRadiusTiles: 2
+  clearReservedObstaclesAfterGeneration: 1
+  keepRobotInsideMapOnRegenerate: 1
+  robotSafeGroundY: 0.05
+  drawRobotNoObstacleZone: 1
 --- !u!4 &1598164490
 Transform:
   m_ObjectHideFlags: 0
@@ -890,13 +994,14 @@ MonoBehaviour:
   topicName: /goal_pose
   frameId: map
   publisherQueueSize: 10
-  robotTransform: {fileID: 1975805391}
+  robotTransform: {fileID: 529524268}
   targetPositionXZ: {x: 5, y: 10}
   publishKey: 32
   allowMouseClick: 0
   mapGenerator: {fileID: 1598164489}
   maxSnapSearchRadius: 8
   goalClearanceRadiusTiles: 1
+  mapUpdateRepublishDelay: 0.25
   autoPublishTestGoal: 0
   testGoalDistance: 2
   autoPublishDelay: 30
@@ -911,20 +1016,6 @@ MonoBehaviour:
   - WAStar
   selectedAlgorithmIndex: 7
   markerRadius: 0.12
---- !u!114 &1598164493
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1598164487}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 92eee62ad08f9b64f8e27bc92fa55c2e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mapGenerator: {fileID: 1598164489}
-  raycastMaxDistance: 200
 --- !u!114 &1598164494
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1110,6 +1201,7 @@ MonoBehaviour:
   lineWidth: 0.05
   lineHeight: 0.03
   lineMaterial: {fileID: 0}
+  drawOnlyDuringActiveRun: 1
 --- !u!120 &2146790344
 LineRenderer:
   serializedVersion: 2
@@ -1336,15 +1428,18 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7253032877743872868, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1140081163}
+    - targetCorrespondingSourceObject: {fileID: 1127697734294368056, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1096915057}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 81389cf616ce2804dac30f85d7fccb1d, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1096915057}
   - {fileID: 2110014634}
   - {fileID: 488630434}
   - {fileID: 311404324556575216}
   - {fileID: 1598164490}
   - {fileID: 2146790345}
+  - {fileID: 794710433}

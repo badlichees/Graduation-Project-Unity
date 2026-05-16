@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Nav;
+using RobotSimulation.MapGeneration;
 using UnityEngine;
 
 // 路径颜色跟随当前算法选择，方便同一场景里肉眼对比规划结果
@@ -15,6 +16,7 @@ public class PathVisualizer : MonoBehaviour
     public float lineHeight = 0.03f;
     [Tooltip("留空则自动创建 Unlit/Color 材质")]
     public Material lineMaterial;
+    public bool drawOnlyDuringActiveRun = true;
 
     static readonly Dictionary<string, Color> AlgoColors = new()
     {
@@ -30,6 +32,7 @@ public class PathVisualizer : MonoBehaviour
 
     LineRenderer lr;
     GoalPublisher goalPublisher;
+    MapGenerator mapGenerator;
     string currentAlgorithm = "Astar";
 
 #if UNITY_EDITOR
@@ -46,6 +49,8 @@ public class PathVisualizer : MonoBehaviour
 
     void Start()
     {
+        PlannerStatsStore.ResetRuntimeState();
+
         lr = GetComponent<LineRenderer>();
         lr.startWidth    = lineWidth;
         lr.endWidth      = lineWidth;
@@ -57,7 +62,16 @@ public class PathVisualizer : MonoBehaviour
 
         ROSConnection.GetOrCreateInstance().Subscribe<PathMsg>(planTopic, OnPlan);
         goalPublisher = FindFirstObjectByType<GoalPublisher>();
+        mapGenerator = FindFirstObjectByType<MapGenerator>();
+        if (mapGenerator != null)
+            mapGenerator.OnMapGenerated += ClearPath;
         Debug.Log("PathVisualizer: 已订阅 " + planTopic);
+    }
+
+    void OnDestroy()
+    {
+        if (mapGenerator != null)
+            mapGenerator.OnMapGenerated -= ClearPath;
     }
 
     static Material MakeLineMaterial()
@@ -76,6 +90,12 @@ public class PathVisualizer : MonoBehaviour
 
     void OnPlan(PathMsg msg)
     {
+        if (drawOnlyDuringActiveRun && !PlannerStatsStore.HasActiveRun)
+        {
+            ClearPath();
+            return;
+        }
+
         if (msg.poses == null || msg.poses.Length == 0)
         {
             lr.positionCount = 0;

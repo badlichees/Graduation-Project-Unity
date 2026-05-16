@@ -3,33 +3,33 @@ using UnityEngine;
 [RequireComponent(typeof(Camera))]
 public class MainCameraFollow : MonoBehaviour
 {
-    [Header("跟随目标")]
-    public Transform target;
+    [Header("第一人称偏移")]
+    public Vector3 firstPersonOffset = new Vector3(0f, 0.18f, 0f);
 
-    [Header("世界空间偏移")]
-    public Vector3 worldOffset = new Vector3(0f, 1.2f, -1.8f);
-
-    [Header("平滑系数")]
-    [Range(0.01f, 1f)]
-    public float followLerp = 0.15f;
+    [Header("近裁剪面")]
+    public float nearClipPlane = 0.01f;
 
     void Start()
     {
+        Transform target = ResolveRobotRoot();
         if (target == null) return;
-        if (target.GetComponent<ArticulationBody>() != null) return;
 
-        // URDF 根节点可能不随物理移动，跟随第一个 ArticulationBody 更稳定
-        var ab = target.GetComponentInChildren<ArticulationBody>();
-        if (ab != null && ab.transform != target)
-            target = ab.transform;
+        transform.SetParent(target);
+        transform.localPosition = firstPersonOffset;
+        transform.localRotation = Quaternion.identity;
+
+        var cam = GetComponent<Camera>();
+        cam.nearClipPlane = nearClipPlane;
     }
 
-    void LateUpdate()
+    Transform ResolveRobotRoot()
     {
-        if (target == null) return;
-
-        Vector3 desired = target.position + worldOffset;
-        transform.position = Vector3.Lerp(transform.position, desired, followLerp);
-        transform.LookAt(target.position);
+        var bodies = FindObjectsByType<ArticulationBody>(FindObjectsSortMode.None);
+        foreach (var ab in bodies)
+        {
+            if (ab.isRoot)
+                return ab.transform;
+        }
+        return null;
     }
 }

@@ -146,7 +146,7 @@ void Update()
     void CompleteCurrentRun(string source)
     {
         PlannerStatsReceiver.FlushPendingRecords();
-        PlannerStatsStore.CompleteActiveRun(CollisionCounter.TotalCollisions);
+        PlannerStatsStore.CompleteActiveRun();
         nav2SucceededObservedAt = -1f;
         Debug.Log("NavigationRunMonitor: goal succeeded via " + source + ", metrics recorded");
     }

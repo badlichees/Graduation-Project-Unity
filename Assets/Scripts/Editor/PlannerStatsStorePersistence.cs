@@ -5,7 +5,7 @@ using UnityEditor;
 [InitializeOnLoad]
 static class PlannerStatsStorePersistence
 {
-    internal const string SessionKey = "PlannerStats_v2";
+    internal const string SessionKey = "PlannerStats_v3";
 
     static PlannerStatsStorePersistence()
     {
@@ -32,9 +32,7 @@ static class PlannerStatsStorePersistence
                 e.experimentFailCount,
                 e.completedRunCount,
                 e.totalTimeMs.ToString("F3", CultureInfo.InvariantCulture),
-                e.totalRunTimeMs.ToString("F3", CultureInfo.InvariantCulture),
                 e.totalTraveledM.ToString("F3", CultureInfo.InvariantCulture),
-                e.totalCollisions,
                 e.totalNodes.ToString()));
         }
         SessionState.SetString(SessionKey, sb.ToString());
@@ -50,7 +48,7 @@ static class PlannerStatsStorePersistence
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             string[] p = line.Trim().Split('|');
-            if (p.Length < 8) continue;
+            if (p.Length < 7) continue;
 
             PlannerStatsStore.Data[p[0]] = new PlannerStatsStore.Entry
             {
@@ -59,10 +57,8 @@ static class PlannerStatsStorePersistence
                 experimentFailCount = int.Parse(p[3]),
                 completedRunCount   = int.Parse(p[4]),
                 totalTimeMs      = double.Parse(p[5], CultureInfo.InvariantCulture),
-                totalRunTimeMs   = double.Parse(p[6], CultureInfo.InvariantCulture),
-                totalTraveledM   = double.Parse(p[7], CultureInfo.InvariantCulture),
-                totalCollisions  = int.Parse(p[8]),
-                totalNodes       = long.Parse(p[9]),
+                totalTraveledM   = double.Parse(p[6], CultureInfo.InvariantCulture),
+                totalNodes       = long.Parse(p[7]),
             };
         }
     }

@@ -44,8 +44,6 @@ public class PlannerStatsReceiver : MonoBehaviour
                 PlanTimeMs    = ExtractDouble(json, "plan_time_ms"),
                 PathLengthM   = ExtractDouble(json, "path_length_m"),
                 NodesExpanded = (int)ExtractDouble(json, "nodes_expanded"),
-                RunElapsedMs  = ExtractDouble(json, "run_time_ms"),
-                CollisionCount = (int)ExtractDouble(json, "collision_count"),
                 PathFound     = json.Contains("\"path_found\":true"),
             };
         }

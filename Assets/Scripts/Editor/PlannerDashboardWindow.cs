@@ -161,7 +161,6 @@ void DrawTable()
             if (GUILayout.Button("清空数据", GUILayout.Height(24), GUILayout.Width(80)))
             {
                 PlannerStatsStore.Clear();
-                CollisionCounter.ResetAll();
                 PlannerStatsStorePersistence.ClearSession();
             }
 

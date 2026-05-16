@@ -234,7 +234,7 @@ void PublishGoalPoint(Vector3 goalPoint, string sourceLabel)
     {
         hasPublishedGoal = true;
         MoveMarker(goalPoint);
-        PlannerStatsStore.BeginRun(ActiveAlgorithm, goalPoint, CollisionCounter.TotalCollisions, robotTransform.position);
+        PlannerStatsStore.BeginRun(ActiveAlgorithm, goalPoint, robotTransform.position);
 
         // Unity 地面是 XZ，ROS 地图是 XY；和 map/odom 发布端保持同一套轴向约定
         double rosX = goalPoint.z;

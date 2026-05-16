@@ -11,17 +11,13 @@ public static class PlannerStatsStore
         public int    experimentFailCount;
         public int    completedRunCount;
         public double totalTimeMs;
-        public double totalRunTimeMs;
         public double totalTraveledM;
-        public int    totalCollisions;
         public long   totalNodes;
 
         public int    TotalCount => successCount + failCount;
         public bool   HasAnyData => TotalCount > 0 || completedRunCount > 0;
         public double AvgTimeMs  => successCount > 0 ? totalTimeMs / successCount : 0;
-        public double AvgRunTimeMs => completedRunCount > 0 ? totalRunTimeMs / completedRunCount : 0;
         public double AvgTraveledM => completedRunCount > 0 ? totalTraveledM / completedRunCount : 0;
-        public double AvgCollisions => completedRunCount > 0 ? (double)totalCollisions / completedRunCount : 0;
         public long   AvgNodes   => completedRunCount > 0 ? totalNodes  / completedRunCount : 0;
     }
 
@@ -48,7 +44,6 @@ public static class PlannerStatsStore
         public Vector3 GoalUnity;
         public float StartTime;
         public double StartUnixSeconds;
-        public int StartCollisionCount;
         public int Sequence;
         public Vector3 LastRobotPosition;
         public float TraveledDistance;
@@ -65,7 +60,7 @@ public static class PlannerStatsStore
     public static bool HasPendingRecord => pendingRecords.Count > 0;
     static int nextRunSequence;
 
-    public static void BeginRun(string algorithm, Vector3 goalUnity, int collisionCount, Vector3 robotPosition)
+    public static void BeginRun(string algorithm, Vector3 goalUnity, Vector3 robotPosition)
     {
         SuppressNextRecord = false;
         pendingRecords.Clear();
@@ -75,7 +70,6 @@ public static class PlannerStatsStore
             GoalUnity = goalUnity,
             StartTime = Time.realtimeSinceStartup,
             StartUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0,
-            StartCollisionCount = collisionCount,
             Sequence = ++nextRunSequence,
             LastRobotPosition = robotPosition,
             TraveledDistance = 0f,
@@ -106,11 +100,10 @@ public static class PlannerStatsStore
 
         ActiveRunState run = activeRun.Value;
         r.Algorithm = string.IsNullOrEmpty(run.Algorithm) ? r.Algorithm : run.Algorithm;
-        r.RunElapsedMs = ActiveRunSeconds * 1000.0;
         pendingRecords.Add(r);
     }
 
-    public static void CompleteActiveRun(int currentCollisionCount)
+    public static void CompleteActiveRun()
     {
         if (!activeRun.HasValue) return;
 
@@ -119,9 +112,6 @@ public static class PlannerStatsStore
         float traveled = run.TraveledDistance;
         activeRun = null;
         pendingRecords.Clear();
-
-        double elapsedMs = (Time.realtimeSinceStartup - run.StartTime) * 1000.0;
-        int collisions = Mathf.Max(0, currentCollisionCount - run.StartCollisionCount);
 
         if (completedRecords.Count == 0)
         {
@@ -137,9 +127,6 @@ public static class PlannerStatsStore
             record.Algorithm = string.IsNullOrEmpty(run.Algorithm)
                 ? record.Algorithm
                 : run.Algorithm;
-            record.RunElapsedMs = elapsedMs;
-            record.CollisionCount = collisions;
-            record.RunComplete = true;
             CommitCompletedRecord(record);
 
             if (record.PathFound)
@@ -149,7 +136,7 @@ public static class PlannerStatsStore
             }
         }
 
-        CommitRunMetrics(run.Algorithm, elapsedMs, collisions, traveled, firstPlan);
+        CommitRunMetrics(run.Algorithm, traveled, firstPlan);
         LastRecord = lastCommitted;
         OnUpdated?.Invoke();
     }
@@ -183,13 +170,11 @@ public static class PlannerStatsStore
         }
     }
 
-    static void CommitRunMetrics(string algorithm, double elapsedMs, int collisions, float traveled, PlannerRunRecord firstPlan)
+    static void CommitRunMetrics(string algorithm, float traveled, PlannerRunRecord firstPlan)
     {
         Entry e = GetOrCreateEntry(algorithm);
 
         e.completedRunCount++;
-        e.totalRunTimeMs += elapsedMs;
-        e.totalCollisions += collisions;
         e.totalTraveledM += traveled;
 
         if (firstPlan != null && firstPlan.PathFound)
@@ -230,7 +215,4 @@ public class PlannerRunRecord
     public double PathLengthM;
     public int    NodesExpanded;
     public bool   PathFound;
-    public double RunElapsedMs;
-    public int    CollisionCount;
-    public bool   RunComplete;
 }

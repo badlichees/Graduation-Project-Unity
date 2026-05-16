@@ -63,13 +63,16 @@ public class RobotResetController : MonoBehaviour
             ResetPose();
     }
 
-    public void ResetPose()
+public void ResetPose()
     {
         if (rootBody == null)
         {
             Debug.LogWarning("RobotResetController: rootBody 为空，无法重置");
             return;
         }
+
+        if (PlannerStatsStore.HasActiveRun)
+            PlannerStatsStore.RecordExperimentFailure(PlannerStatsStore.ActiveAlgorithm);
 
         rootBody.TeleportRoot(initialPos, initialRot);
 

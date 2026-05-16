@@ -5,6 +5,7 @@ using RosMessageTypes.Geometry;
 using RosMessageTypes.Std;
 using RosMessageTypes.BuiltinInterfaces;
 using System;
+using System.Collections;
 using RobotSimulation.MapGeneration;
 
 public class GoalPublisher : MonoBehaviour
@@ -28,6 +29,7 @@ public class GoalPublisher : MonoBehaviour
     public MapGenerator mapGenerator;
     [Min(0)] public int maxSnapSearchRadius = 8;
     [Min(0)] public int goalClearanceRadiusTiles = 1;
+    [Min(0f)] public float mapUpdateRepublishDelay = 0.25f;
 
     [Header("Test")]
     public bool autoPublishTestGoal = false;
@@ -53,19 +55,24 @@ public class GoalPublisher : MonoBehaviour
     private Vector2 lastPreviewedXZ = new Vector2(float.NaN, float.NaN);
     private Vector3 currentGoalPoint;
     private bool hasGoalPoint = false;
+    private bool hasPublishedGoal = false;
+    private Coroutine mapUpdateRepublishCoroutine;
 
     void Start()
     {
+        PlannerStatsStore.ResetRuntimeState();
+
         ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<PoseStampedMsg>(topicName, publisherQueueSize);
         ros.RegisterPublisher<StringMsg>(PlannerSelectorTopic, 1);
         if (mapGenerator == null)
             mapGenerator = FindFirstObjectByType<MapGenerator>();
+        robotTransform = ResolvePhysicsRobotTransform(robotTransform);
 
         CreateMarker();
 
         if (mapGenerator != null)
-            mapGenerator.OnMapGenerated += RefreshTargetPreview;
+            mapGenerator.OnMapGenerated += HandleMapGenerated;
 
         if (mapGenerator == null || mapGenerator.GeneratedObstacleMap != null)
             RefreshTargetPreview();
@@ -103,15 +110,54 @@ public class GoalPublisher : MonoBehaviour
     void OnDestroy()
     {
         if (mapGenerator != null)
-            mapGenerator.OnMapGenerated -= RefreshTargetPreview;
+            mapGenerator.OnMapGenerated -= HandleMapGenerated;
+        if (mapUpdateRepublishCoroutine != null)
+            StopCoroutine(mapUpdateRepublishCoroutine);
         if (goalMarker != null)
             Destroy(goalMarker);
     }
 
     void RefreshTargetPreview()
     {
-        Vector3 desired = new Vector3(targetPositionXZ.x, 0f, targetPositionXZ.y);
+        RefreshTargetPreview(false);
+    }
+
+    void HandleMapGenerated()
+    {
+        bool shouldRepublish = hasPublishedGoal && hasGoalPoint && PlannerStatsStore.HasActiveRun;
+        RefreshTargetPreview(hasGoalPoint);
+
+        if (!shouldRepublish || !isActiveAndEnabled)
+            return;
+
+        if (mapUpdateRepublishCoroutine != null)
+            StopCoroutine(mapUpdateRepublishCoroutine);
+
+        mapUpdateRepublishCoroutine = StartCoroutine(RepublishGoalAfterMapUpdate());
+    }
+
+    IEnumerator RepublishGoalAfterMapUpdate()
+    {
+        if (mapUpdateRepublishDelay > 0f)
+            yield return new WaitForSecondsRealtime(mapUpdateRepublishDelay);
+        else
+            yield return null;
+
+        mapUpdateRepublishCoroutine = null;
+
+        if (!hasPublishedGoal || !hasGoalPoint || ros == null || !PlannerStatsStore.HasActiveRun)
+            yield break;
+
+        PublishGoalPoint(currentGoalPoint, "map-update");
+    }
+
+    void RefreshTargetPreview(bool keepCurrentMarker)
+    {
+        Vector3 desired = keepCurrentMarker && hasGoalPoint
+            ? currentGoalPoint
+            : new Vector3(targetPositionXZ.x, 0f, targetPositionXZ.y);
         currentGoalPoint = SnapGoalToNearestOpenCell(desired);
+        targetPositionXZ = new Vector2(currentGoalPoint.x, currentGoalPoint.z);
         MoveMarker(currentGoalPoint);
         lastPreviewedXZ = targetPositionXZ;
         hasGoalPoint = true;
@@ -184,9 +230,11 @@ public class GoalPublisher : MonoBehaviour
         return snappedWorld;
     }
 
-    void PublishGoalPoint(Vector3 goalPoint, string sourceLabel)
+void PublishGoalPoint(Vector3 goalPoint, string sourceLabel)
     {
+        hasPublishedGoal = true;
         MoveMarker(goalPoint);
+        PlannerStatsStore.BeginRun(ActiveAlgorithm, goalPoint, CollisionCounter.TotalCollisions, robotTransform.position);
 
         // Unity 地面是 XZ，ROS 地图是 XY；和 map/odom 发布端保持同一套轴向约定
         double rosX = goalPoint.z;
@@ -271,12 +319,15 @@ public class GoalPublisher : MonoBehaviour
         desiredPoint.y = 0f;
         Vector3 snappedPoint = SnapGoalToNearestOpenCell(desiredPoint);
         currentGoalPoint = snappedPoint;
+        targetPositionXZ = new Vector2(snappedPoint.x, snappedPoint.z);
+        lastPreviewedXZ = targetPositionXZ;
         hasGoalPoint = true;
         PublishGoalPoint(snappedPoint, sourceLabel);
     }
 
     double ComputeGoalYawROS(Vector3 goalUnity)
     {
+        robotTransform = ResolvePhysicsRobotTransform(robotTransform);
         if (robotTransform == null)
             return 0.0;
 
@@ -286,6 +337,28 @@ public class GoalPublisher : MonoBehaviour
 
         float yawUnity = Mathf.Atan2(dir.x, dir.z);
         return -yawUnity;
+    }
+
+    Transform ResolvePhysicsRobotTransform(Transform candidate)
+    {
+        if (candidate == null)
+            return null;
+
+        ArticulationBody directBody = candidate.GetComponent<ArticulationBody>();
+        if (directBody != null && directBody.isRoot)
+            return directBody.transform;
+
+        foreach (ArticulationBody body in candidate.GetComponentsInChildren<ArticulationBody>())
+        {
+            if (body.isRoot)
+                return body.transform;
+        }
+
+        ArticulationBody parentBody = candidate.GetComponentInParent<ArticulationBody>();
+        if (parentBody != null && parentBody.isRoot)
+            return parentBody.transform;
+
+        return candidate;
     }
 
     void CreateMarker()
@@ -333,6 +406,13 @@ public class GoalPublisher : MonoBehaviour
 
     public void ClearGoalMarker()
     {
+        hasPublishedGoal = false;
+        PlannerStatsStore.CancelActiveRun();
+        if (mapUpdateRepublishCoroutine != null)
+        {
+            StopCoroutine(mapUpdateRepublishCoroutine);
+            mapUpdateRepublishCoroutine = null;
+        }
         if (goalMarker != null) goalMarker.SetActive(false);
     }
 
@@ -350,6 +430,12 @@ public class GoalPublisher : MonoBehaviour
         (availableAlgorithms != null && availableAlgorithms.Length > 0)
             ? availableAlgorithms[Mathf.Clamp(selectedAlgorithmIndex, 0, availableAlgorithms.Length - 1)]
             : "Unknown";
+
+    public bool HasGoalPoint => hasGoalPoint;
+    public Vector3 CurrentGoalPoint => currentGoalPoint;
+    public Vector3 GoalProtectionPoint =>
+        hasGoalPoint ? currentGoalPoint : new Vector3(targetPositionXZ.x, 0f, targetPositionXZ.y);
+    public int GoalClearanceRadiusTiles => goalClearanceRadiusTiles;
 
     public void SelectAlgorithm(int index)
     {

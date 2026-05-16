@@ -66,14 +66,15 @@ public class PlannerDashboardWindow : EditorWindow
         EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1), new Color(0.4f, 0.4f, 0.4f));
     }
 
-    void DrawTable()
+void DrawTable()
     {
         using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
         {
             ColHeader("算法", 70);
             ColHeader("规划次数", 52);
+            ColHeader("实验失败", 58);
             ColHeader("耗时 avg(ms)", 100);
-            ColHeader("路径 avg (m)", 96);
+            ColHeader("行驶距离 avg (m)", 108);
             ColHeader("节点 avg", 80);
         }
 
@@ -96,13 +97,14 @@ public class PlannerDashboardWindow : EditorWindow
             {
                 string nodesStr = algo == "NavFn" ? "N/A" : e.AvgNodes.ToString();
                 Cell(e.TotalCount.ToString(), 52);
+                Cell(e.experimentFailCount.ToString(), 58);
                 Cell($"{e.AvgTimeMs:F2}",    100);
-                Cell($"{e.AvgPathM:F2}",      96);
+                Cell($"{e.AvgTraveledM:F2}", 108);
                 Cell(nodesStr,                80);
             }
             else
             {
-                Cell("—", 52); Cell("—", 100); Cell("—", 96); Cell("—", 80);
+                Cell("—", 52); Cell("—", 58); Cell("—", 100); Cell("—", 108); Cell("—", 80);
             }
 
             EditorGUILayout.EndHorizontal();
@@ -159,6 +161,7 @@ public class PlannerDashboardWindow : EditorWindow
             if (GUILayout.Button("清空数据", GUILayout.Height(24), GUILayout.Width(80)))
             {
                 PlannerStatsStore.Clear();
+                CollisionCounter.ResetAll();
                 PlannerStatsStorePersistence.ClearSession();
             }
 
@@ -167,24 +170,24 @@ public class PlannerDashboardWindow : EditorWindow
         }
     }
 
-    void ExportCSV()
+void ExportCSV()
     {
         string path = EditorUtility.SaveFilePanel("导出 CSV", "", "planner_stats.csv", "csv");
         if (string.IsNullOrEmpty(path)) return;
 
         using var w = new StreamWriter(path, false, System.Text.Encoding.UTF8);
-        w.WriteLine("算法,总次数,成功次数,失败次数,平均耗时(ms),平均路径长度(m),平均展开节点数");
+        w.WriteLine("算法,总次数,成功次数,失败次数,实验失败次数,平均耗时(ms),平均行驶距离(m),平均展开节点数");
 
         foreach (string algo in Algorithms)
         {
             if (!PlannerStatsStore.Data.TryGetValue(algo, out var e))
             {
-                w.WriteLine($"{algo},0,0,0,0,0,0");
+                w.WriteLine($"{algo},0,0,0,0,0,0,0");
                 continue;
             }
             string nodes = algo == "NavFn" ? "N/A" : e.AvgNodes.ToString();
-            w.WriteLine($"{algo},{e.TotalCount},{e.successCount},{e.failCount}," +
-                        $"{e.AvgTimeMs:F1},{e.AvgPathM:F2},{nodes}");
+            w.WriteLine($"{algo},{e.TotalCount},{e.successCount},{e.failCount},{e.experimentFailCount}," +
+                        $"{e.AvgTimeMs:F1},{e.AvgTraveledM:F2},{nodes}");
         }
 
         Debug.Log($"PlannerDashboard: CSV 已保存至 {path}");

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System;
+using UnityEngine;
 
 public static class PlannerStatsStore
 {
@@ -6,23 +8,90 @@ public static class PlannerStatsStore
     {
         public int    successCount;
         public int    failCount;
+        public int    experimentFailCount;
+        public int    completedRunCount;
         public double totalTimeMs;
-        public double totalPathM;
+        public double totalRunTimeMs;
+        public double totalTraveledM;
+        public int    totalCollisions;
         public long   totalNodes;
 
         public int    TotalCount => successCount + failCount;
+        public bool   HasAnyData => TotalCount > 0 || completedRunCount > 0;
         public double AvgTimeMs  => successCount > 0 ? totalTimeMs / successCount : 0;
-        public double AvgPathM   => successCount > 0 ? totalPathM  / successCount : 0;
-        public long   AvgNodes   => successCount > 0 ? totalNodes  / successCount : 0;
+        public double AvgRunTimeMs => completedRunCount > 0 ? totalRunTimeMs / completedRunCount : 0;
+        public double AvgTraveledM => completedRunCount > 0 ? totalTraveledM / completedRunCount : 0;
+        public double AvgCollisions => completedRunCount > 0 ? (double)totalCollisions / completedRunCount : 0;
+        public long   AvgNodes   => completedRunCount > 0 ? totalNodes  / completedRunCount : 0;
     }
 
     public static readonly Dictionary<string, Entry> Data = new();
     public static PlannerRunRecord LastRecord;
 
-    // 重置机器人时会向 Nav2 发静默 goal，这条结果不应污染实验数据
     public static bool SuppressNextRecord { get; set; }
 
+    public static string ActiveAlgorithm => activeRun.HasValue ? activeRun.Value.Algorithm : null;
+
+    public static void RecordExperimentFailure(string algorithm)
+    {
+        if (!string.IsNullOrEmpty(algorithm))
+            GetOrCreateEntry(algorithm).experimentFailCount++;
+        CancelActiveRun();
+        OnUpdated?.Invoke();
+    }
+
     public static event System.Action OnUpdated;
+
+    struct ActiveRunState
+    {
+        public string Algorithm;
+        public Vector3 GoalUnity;
+        public float StartTime;
+        public double StartUnixSeconds;
+        public int StartCollisionCount;
+        public int Sequence;
+        public Vector3 LastRobotPosition;
+        public float TraveledDistance;
+    }
+
+    static ActiveRunState? activeRun;
+    static readonly List<PlannerRunRecord> pendingRecords = new();
+
+    public static bool HasActiveRun => activeRun.HasValue;
+    public static Vector3 ActiveGoalUnity => activeRun.HasValue ? activeRun.Value.GoalUnity : Vector3.zero;
+    public static float ActiveRunSeconds => activeRun.HasValue ? Time.realtimeSinceStartup - activeRun.Value.StartTime : 0f;
+    public static double ActiveRunStartUnixSeconds => activeRun.HasValue ? activeRun.Value.StartUnixSeconds : 0.0;
+    public static int ActiveRunSequence => activeRun.HasValue ? activeRun.Value.Sequence : 0;
+    public static bool HasPendingRecord => pendingRecords.Count > 0;
+    static int nextRunSequence;
+
+    public static void BeginRun(string algorithm, Vector3 goalUnity, int collisionCount, Vector3 robotPosition)
+    {
+        SuppressNextRecord = false;
+        pendingRecords.Clear();
+        activeRun = new ActiveRunState
+        {
+            Algorithm = algorithm,
+            GoalUnity = goalUnity,
+            StartTime = Time.realtimeSinceStartup,
+            StartUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0,
+            StartCollisionCount = collisionCount,
+            Sequence = ++nextRunSequence,
+            LastRobotPosition = robotPosition,
+            TraveledDistance = 0f,
+        };
+        OnUpdated?.Invoke();
+    }
+
+    public static void UpdateRobotPosition(Vector3 pos)
+    {
+        if (!activeRun.HasValue) return;
+        var run = activeRun.Value;
+        float delta = Vector3.Distance(run.LastRobotPosition, pos);
+        run.TraveledDistance += delta;
+        run.LastRobotPosition = pos;
+        activeRun = run;
+    }
 
     public static void Record(PlannerRunRecord r)
     {
@@ -32,23 +101,115 @@ public static class PlannerStatsStore
             return;
         }
 
-        if (!Data.TryGetValue(r.Algorithm, out var e))
+        if (!activeRun.HasValue)
+            return;
+
+        ActiveRunState run = activeRun.Value;
+        r.Algorithm = string.IsNullOrEmpty(run.Algorithm) ? r.Algorithm : run.Algorithm;
+        r.RunElapsedMs = ActiveRunSeconds * 1000.0;
+        pendingRecords.Add(r);
+    }
+
+    public static void CompleteActiveRun(int currentCollisionCount)
+    {
+        if (!activeRun.HasValue) return;
+
+        ActiveRunState run = activeRun.Value;
+        List<PlannerRunRecord> completedRecords = new(pendingRecords);
+        float traveled = run.TraveledDistance;
+        activeRun = null;
+        pendingRecords.Clear();
+
+        double elapsedMs = (Time.realtimeSinceStartup - run.StartTime) * 1000.0;
+        int collisions = Mathf.Max(0, currentCollisionCount - run.StartCollisionCount);
+
+        if (completedRecords.Count == 0)
+        {
+            Debug.LogWarning("PlannerStatsStore: goal succeeded but no planner stats were received; no dashboard record committed");
+            OnUpdated?.Invoke();
+            return;
+        }
+
+        PlannerRunRecord firstPlan = null;
+        PlannerRunRecord lastCommitted = null;
+        foreach (PlannerRunRecord record in completedRecords)
+        {
+            record.Algorithm = string.IsNullOrEmpty(run.Algorithm)
+                ? record.Algorithm
+                : run.Algorithm;
+            record.RunElapsedMs = elapsedMs;
+            record.CollisionCount = collisions;
+            record.RunComplete = true;
+            CommitCompletedRecord(record);
+
+            if (record.PathFound)
+            {
+                firstPlan ??= record;
+                lastCommitted = record;
+            }
+        }
+
+        CommitRunMetrics(run.Algorithm, elapsedMs, collisions, traveled, firstPlan);
+        LastRecord = lastCommitted;
+        OnUpdated?.Invoke();
+    }
+
+    static Entry GetOrCreateEntry(string algorithm)
+    {
+        if (string.IsNullOrEmpty(algorithm))
+            algorithm = "Unknown";
+
+        if (!Data.TryGetValue(algorithm, out var e))
         {
             e = new Entry();
-            Data[r.Algorithm] = e;
+            Data[algorithm] = e;
         }
+
+        return e;
+    }
+
+    static void CommitCompletedRecord(PlannerRunRecord r)
+    {
+        Entry e = GetOrCreateEntry(r.Algorithm);
+
         if (r.PathFound)
         {
             e.successCount++;
             e.totalTimeMs += r.PlanTimeMs;
-            e.totalPathM  += r.PathLengthM;
-            e.totalNodes  += r.NodesExpanded;
         }
         else
         {
             e.failCount++;
         }
-        LastRecord = r;
+    }
+
+    static void CommitRunMetrics(string algorithm, double elapsedMs, int collisions, float traveled, PlannerRunRecord firstPlan)
+    {
+        Entry e = GetOrCreateEntry(algorithm);
+
+        e.completedRunCount++;
+        e.totalRunTimeMs += elapsedMs;
+        e.totalCollisions += collisions;
+        e.totalTraveledM += traveled;
+
+        if (firstPlan != null && firstPlan.PathFound)
+        {
+            e.totalNodes += firstPlan.NodesExpanded;
+        }
+    }
+
+    public static void CancelActiveRun()
+    {
+        activeRun = null;
+        pendingRecords.Clear();
+        OnUpdated?.Invoke();
+    }
+
+    public static void ResetRuntimeState()
+    {
+        activeRun = null;
+        pendingRecords.Clear();
+        SuppressNextRecord = false;
         OnUpdated?.Invoke();
     }
 
@@ -56,6 +217,8 @@ public static class PlannerStatsStore
     {
         Data.Clear();
         LastRecord = null;
+        activeRun = null;
+        pendingRecords.Clear();
         OnUpdated?.Invoke();
     }
 }
@@ -67,4 +230,7 @@ public class PlannerRunRecord
     public double PathLengthM;
     public int    NodesExpanded;
     public bool   PathFound;
+    public double RunElapsedMs;
+    public int    CollisionCount;
+    public bool   RunComplete;
 }

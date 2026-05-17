@@ -431,8 +431,6 @@ void PublishGoalPoint(Vector3 goalPoint, string sourceLabel)
             ? availableAlgorithms[Mathf.Clamp(selectedAlgorithmIndex, 0, availableAlgorithms.Length - 1)]
             : "Unknown";
 
-    public bool HasGoalPoint => hasGoalPoint;
-    public Vector3 CurrentGoalPoint => currentGoalPoint;
     public Vector3 GoalProtectionPoint =>
         hasGoalPoint ? currentGoalPoint : new Vector3(targetPositionXZ.x, 0f, targetPositionXZ.y);
     public int GoalClearanceRadiusTiles => goalClearanceRadiusTiles;

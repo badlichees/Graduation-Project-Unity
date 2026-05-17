@@ -15,7 +15,7 @@ public static class PlannerStatsStore
         public long   totalNodes;
 
         public int    TotalCount => successCount + failCount;
-        public bool   HasAnyData => TotalCount > 0 || completedRunCount > 0;
+
         public double AvgTimeMs  => successCount > 0 ? totalTimeMs / successCount : 0;
         public double AvgTraveledM => completedRunCount > 0 ? totalTraveledM / completedRunCount : 0;
         public long   AvgNodes   => completedRunCount > 0 ? totalNodes  / completedRunCount : 0;

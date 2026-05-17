@@ -61,22 +61,7 @@ namespace RobotSimulation.MapGeneration
         {
             return new Vector3(c.x, 0, c.y);
         }
-        
-        public float Distance(Coord other)
-        {
-            return Vector2.Distance(this, other);
-        }
-        
-        public float SqrDistance(Coord other)
-        {
-            return (this - other).SqrMagnitude;
-        }
-        
-        public float SqrMagnitude
-        {
-            get { return x * x + y * y; }
-        }
-        
+
         public override bool Equals(object obj)
         {
             if (obj is Coord)
@@ -158,14 +143,10 @@ namespace RobotSimulation.MapGeneration
 
         private List<Coord> allTileCoords;
         private Queue<Coord> shuffledTileCoords;
-        private Queue<Coord> shuffledOpenTileCoords;
-        private Transform[,] tileMap;
         private Map currentMap;
-        private Transform _mapHolder;
         private Dictionary<Coord, Transform> _obstacleObjects = new Dictionary<Coord, Transform>();
         private Coroutine robotGuardReleaseCoroutine;
         private ArticulationBody guardedRootBody;
-        private bool guardedOriginalImmovable;
         private bool robotGuardActive;
 
         #endregion
@@ -201,7 +182,6 @@ namespace RobotSimulation.MapGeneration
             currentMap = maps[mapIndex];
             ResolveSceneReferences();
             ArticulationBody guardedRobotBody = BeginRobotMapRegenerationGuard();
-            tileMap = new Transform[currentMap.mapSize.x, currentMap.mapSize.y];
             _obstacleObjects.Clear();
             System.Random prng = new System.Random(currentMap.seed);
             
@@ -226,7 +206,6 @@ namespace RobotSimulation.MapGeneration
                 
                 mapHolder = new GameObject(holderName).transform;
                 mapHolder.parent = transform;
-                _mapHolder = mapHolder;
             }
             
             for (int x = 0; x < currentMap.mapSize.x; x++)
@@ -239,7 +218,6 @@ namespace RobotSimulation.MapGeneration
                         Transform newTile = Instantiate(tilePrefab, tilePosition, Quaternion.Euler(Vector3.right * 90)) as Transform;
                         newTile.localScale = Vector3.one * (1 - outlinePercent) * tileSize;
                         newTile.parent = mapHolder;
-                        tileMap[x, y] = newTile;
                     }
                 }
             }
@@ -292,8 +270,6 @@ namespace RobotSimulation.MapGeneration
                 ? ClearReservedObstacles(obstacleMap, allOpenCoords)
                 : 0;
             currentObstacleCount -= clearedReservedObstacles;
-
-            shuffledOpenTileCoords = new Queue<Coord>(Utility.ShuffleArray(allOpenCoords.ToArray(), currentMap.seed));
 
             GeneratedObstacleMap = obstacleMap;
             if (keepRobotInsideMapOnRegenerate)
@@ -354,15 +330,6 @@ namespace RobotSimulation.MapGeneration
             return new Vector3(-currentMap.mapSize.x / 2f + 0.5f + x, 0, -currentMap.mapSize.y / 2f + 0.5f + y) * tileSize;
         }
         
-        public Transform GetTileFromPosition(Vector3 position)
-        {
-            int x = Mathf.RoundToInt(position.x / tileSize + (currentMap.mapSize.x - 1) / 2f);
-            int y = Mathf.RoundToInt(position.z / tileSize + (currentMap.mapSize.y - 1) / 2f);
-            x = Mathf.Clamp(x, 0, tileMap.GetLength(0) - 1);
-            y = Mathf.Clamp(y, 0, tileMap.GetLength(1) - 1);
-            return tileMap[x, y];
-        }
-        
         public Coord GetRandomCoord()
         {
             Coord randomCoord = shuffledTileCoords.Dequeue();
@@ -370,31 +337,19 @@ namespace RobotSimulation.MapGeneration
             return randomCoord;
         }
         
-        public Transform GetRandomOpenTile()
-        {
-            Coord randomCoord = shuffledOpenTileCoords.Dequeue();
-            shuffledOpenTileCoords.Enqueue(randomCoord);
-            return tileMap[randomCoord.x, randomCoord.y];
-        }
-        
         #endregion
         
         #region 数据导出
         
-        // true 表示障碍物，供 ROS OccupancyGrid 和动态障碍编辑共用
+        // true 表示障碍物，供 ROS OccupancyGrid 读取
         public bool[,] GeneratedObstacleMap { get; private set; }
 
         public Coord MapSize
         {
             get { return currentMap != null ? currentMap.mapSize : new Coord(0, 0); }
         }
-        
-        public Vector3 MapCentreWorld
-        {
-            get { return CoordToPosition(MapSize.x / 2, MapSize.y / 2); }
-        }
-        
-        // 点击、目标吸附和动态障碍都通过同一套取整规则进入网格
+
+        // 点击、目标吸附通过同一套取整规则进入网格
         public Coord WorldToGrid(Vector3 worldPos)
         {
             int x = Mathf.RoundToInt(worldPos.x / tileSize + (MapSize.x - 1) / 2f);
@@ -484,8 +439,6 @@ namespace RobotSimulation.MapGeneration
             return CoordToPosition(gridCoord.x, gridCoord.y);
         }
 
-        public Transform MapHolder => _mapHolder;
-
         public Map ActiveMap
         {
             get
@@ -502,72 +455,6 @@ namespace RobotSimulation.MapGeneration
             if (map == null) return;
             map.seed = seed;
             map.obstaclePercent = Mathf.Clamp01(obstaclePercent);
-        }
-
-        public bool TryGetObstacleAt(Transform t, out Coord coord)
-        {
-            foreach (var kv in _obstacleObjects)
-            {
-                if (kv.Value == t) { coord = kv.Key; return true; }
-            }
-            coord = default;
-            return false;
-        }
-
-        public void SetObstacleAtGrid(Coord coord, bool isObstacle)
-        {
-            if (GeneratedObstacleMap == null || currentMap == null) return;
-            if (coord.x < 0 || coord.x >= MapSize.x || coord.y < 0 || coord.y >= MapSize.y) return;
-
-            if (isObstacle)
-            {
-                if (GeneratedObstacleMap[coord.x, coord.y]) return;
-                if (IsReservedCoord(coord))
-                {
-                    Debug.Log("MapGenerator: reserved robot/goal area cannot contain obstacles");
-                    return;
-                }
-                GeneratedObstacleMap[coord.x, coord.y] = true;
-                if (!MapIsFullyAccessible(GeneratedObstacleMap, CountObstacles(GeneratedObstacleMap)))
-                {
-                    GeneratedObstacleMap[coord.x, coord.y] = false;
-                    Debug.Log("MapGenerator: obstacle rejected because it would disconnect the map");
-                    return;
-                }
-                if (obstaclePrefab == null || _mapHolder == null) return;
-
-                // 动态障碍使用固定中间高度，避免运行时编辑引入额外随机性
-                float height = (currentMap.minObstacleHeight + currentMap.maxObstacleHeight) * 0.5f;
-                Vector3 pos = CoordToPosition(coord.x, coord.y) + Vector3.up * height * 0.5f;
-                Transform newObs = Instantiate(obstaclePrefab, pos, Quaternion.identity);
-                newObs.parent = _mapHolder;
-                newObs.localScale = new Vector3((1 - outlinePercent) * tileSize, height, (1 - outlinePercent) * tileSize);
-
-                Renderer rend = newObs.GetComponent<Renderer>();
-                if (rend != null)
-                {
-                    Material mat = new Material(rend.sharedMaterial);
-                    float colourPercent = coord.y / (float)MapSize.y;
-                    mat.color = Color.Lerp(currentMap.foregroundColour, currentMap.backgroundColour, colourPercent);
-                    rend.sharedMaterial = mat;
-                }
-
-                _obstacleObjects[coord] = newObs;
-                GeneratedObstacleMap[coord.x, coord.y] = true;
-            }
-            else
-            {
-                if (!GeneratedObstacleMap[coord.x, coord.y]) return;
-
-                if (_obstacleObjects.TryGetValue(coord, out Transform t))
-                {
-                    Destroy(t.gameObject);
-                    _obstacleObjects.Remove(coord);
-                }
-                GeneratedObstacleMap[coord.x, coord.y] = false;
-            }
-
-            OnMapGenerated?.Invoke();
         }
 
         bool IsReservedCoord(Coord coord)
@@ -642,7 +529,6 @@ namespace RobotSimulation.MapGeneration
             if (!robotGuardActive || guardedRootBody != rootBody)
             {
                 guardedRootBody = rootBody;
-                guardedOriginalImmovable = rootBody.immovable;
                 robotGuardActive = true;
             }
 
@@ -809,20 +695,6 @@ namespace RobotSimulation.MapGeneration
         {
             return coord.x >= 0 && coord.x < obstacleMap.GetLength(0) &&
                    coord.y >= 0 && coord.y < obstacleMap.GetLength(1);
-        }
-
-        int CountObstacles(bool[,] obstacleMap)
-        {
-            int count = 0;
-            for (int x = 0; x < obstacleMap.GetLength(0); x++)
-            {
-                for (int y = 0; y < obstacleMap.GetLength(1); y++)
-                {
-                    if (obstacleMap[x, y])
-                        count++;
-                }
-            }
-            return count;
         }
 
         bool IsProtectedGoalCoord(Coord coord)

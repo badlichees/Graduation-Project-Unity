@@ -93,14 +93,16 @@ void DrawTable()
             EditorGUI.DrawRect(new Rect(dotRect.x + 1, dotRect.y + 5, 8, 11), dot);
             Cell(algo, 60, TextAnchor.MiddleLeft);
 
-            if (data.TryGetValue(algo, out var e) && e.TotalCount > 0)
+            if (data.TryGetValue(algo, out var e) && (e.TotalCount > 0 || e.experimentFailCount > 0 || e.completedRunCount > 0))
             {
-                string nodesStr = algo == "NavFn" ? "N/A" : e.AvgNodes.ToString();
-                Cell(e.TotalCount.ToString(), 52);
+                string nodesStr  = algo == "NavFn" ? "N/A" : e.AvgNodes.ToString();
+                string timeStr   = algo == "NavFn" ? "N/A" : $"{e.AvgTimeMs:F3}";
+                string countStr  = algo == "NavFn" ? "N/A" : e.TotalCount.ToString();
+                Cell(countStr,               52);
                 Cell(e.experimentFailCount.ToString(), 58);
-                Cell($"{e.AvgTimeMs:F2}",    100);
+                Cell(timeStr,               100);
                 Cell($"{e.AvgTraveledM:F2}", 108);
-                Cell(nodesStr,                80);
+                Cell(nodesStr,               80);
             }
             else
             {
@@ -184,9 +186,14 @@ void ExportCSV()
                 w.WriteLine($"{algo},0,0,0,0,0,0,0");
                 continue;
             }
-            string nodes = algo == "NavFn" ? "N/A" : e.AvgNodes.ToString();
-            w.WriteLine($"{algo},{e.TotalCount},{e.successCount},{e.failCount},{e.experimentFailCount}," +
-                        $"{e.AvgTimeMs:F1},{e.AvgTraveledM:F2},{nodes}");
+            bool isNavFn = algo == "NavFn";
+            string nodes   = isNavFn ? "N/A" : e.AvgNodes.ToString();
+            string time    = isNavFn ? "N/A" : e.AvgTimeMs.ToString("F3");
+            string total   = isNavFn ? "N/A" : e.TotalCount.ToString();
+            string success = isNavFn ? "N/A" : e.successCount.ToString();
+            string fail    = isNavFn ? "N/A" : e.failCount.ToString();
+            w.WriteLine($"{algo},{total},{success},{fail},{e.experimentFailCount}," +
+                        $"{time},{e.AvgTraveledM:F2},{nodes}");
         }
 
         Debug.Log($"PlannerDashboard: CSV 已保存至 {path}");

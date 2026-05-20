@@ -115,7 +115,11 @@ public static class PlannerStatsStore
 
         if (completedRecords.Count == 0)
         {
-            Debug.LogWarning("PlannerStatsStore: goal succeeded but no planner stats were received; no dashboard record committed");
+            // 规划器未发送统计消息（如 NavFn），仅记录行驶距离，不计入规划次数
+            Debug.LogWarning($"PlannerStatsStore: {run.Algorithm} 未上报规划统计，仅记录行驶距离");
+            Entry e = GetOrCreateEntry(run.Algorithm);
+            e.completedRunCount++;
+            e.totalTraveledM += traveled;
             OnUpdated?.Invoke();
             return;
         }
@@ -185,6 +189,13 @@ public static class PlannerStatsStore
 
     public static void CancelActiveRun()
     {
+        // 取消前将队列中已记录的规划失败提交，避免算法从未成功时 failCount 永远为零
+        string algo = activeRun.HasValue ? activeRun.Value.Algorithm : null;
+        foreach (var r in pendingRecords)
+        {
+            if (!r.PathFound)
+                GetOrCreateEntry(string.IsNullOrEmpty(r.Algorithm) ? algo : r.Algorithm).failCount++;
+        }
         activeRun = null;
         pendingRecords.Clear();
         OnUpdated?.Invoke();

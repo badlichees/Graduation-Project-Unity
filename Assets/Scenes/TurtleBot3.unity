@@ -1171,7 +1171,7 @@ MonoBehaviour:
   lineWidth: 0.05
   lineHeight: 0.03
   lineMaterial: {fileID: 0}
-  drawOnlyDuringActiveRun: 1
+  drawOnlyDuringActiveRun: 0
 --- !u!120 &2146790344
 LineRenderer:
   serializedVersion: 2

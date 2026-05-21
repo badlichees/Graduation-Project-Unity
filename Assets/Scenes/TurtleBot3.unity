@@ -293,7 +293,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   topicName: /planner_param_updates
   autoPublishOnStart: 1
-  weightedAStarWeight: 2.5
+  weightedAStarWeight: 1
   rrtStarMaxIterations: 5000
   rrtStarStepSize: 0.5
   rrtStarSearchRadius: 1.5
@@ -965,7 +965,7 @@ MonoBehaviour:
   frameId: map
   publisherQueueSize: 10
   robotTransform: {fileID: 529524268}
-  targetPositionXZ: {x: 5, y: 10}
+  targetPositionXZ: {x: 6.5, y: 5}
   publishKey: 32
   allowMouseClick: 0
   mapGenerator: {fileID: 1598164489}

@@ -55,5 +55,5 @@ InitTestScene*.unity*
 .vscode/*
 !.vscode/extensions.json
 .claude/settings.local.json
-Assets/planner_stats.csv
-Assets/planner_stats.csv.meta
+Assets/planner_stats*.csv
+Assets/planner_stats*.csv.meta

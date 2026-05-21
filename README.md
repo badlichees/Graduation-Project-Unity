@@ -1,19 +1,6 @@
 # TurtleBot3 Unity 仿真端
 
-## 1. 概述
-
-本目录是毕业设计的 Unity 仿真端，用于构建 TurtleBot3 的导航实验场景，并与 ROS2/Nav2 联动完成路径规划算法对比。
-
-Unity 侧负责：
-
-- 生成二维栅格地图与障碍物场景。
-- 发布 Nav2 所需的地图、里程计、雷达、IMU、关节状态和目标点。
-- 接收 ROS2 返回的规划路径并在场景中可视化。
-- 提供算法选择、动态障碍编辑、机器人重置和规划统计面板。
-
-## 2. 架构
-
-Unity 端作为仿真前端，ROS2 端作为导航后端。
+## 1. 架构
 
 ```txt
 Unity 场景
@@ -54,7 +41,7 @@ ROS x = Unity z
 ROS y = -Unity x
 ```
 
-## 3. 依赖
+## 2. 依赖
 
 Unity 版本：
 
@@ -79,12 +66,11 @@ Port: 10000
 Prefab: Assets/Resources/ROSConnectionPrefab.prefab
 ```
 
-## 4. 模块介绍
+## 3. 模块介绍
 
 | 模块 | 文件 | 说明 |
 |---|---|---|
 | 地图生成 | `Assets/Scripts/MapGeneration/MapGenerator.cs` | 生成连通栅格地图、维护障碍物数据 |
-| 动态障碍 | `Assets/Scripts/MapGeneration/DynamicObstacleEditor.cs` | 运行时右键添加或删除障碍物 |
 | 地图发布 | `Assets/Scripts/RosBridge/OccupancyGridPublisher.cs` | 将 Unity 地图发布为 `/map_raw` |
 | 目标发布 | `Assets/Scripts/RosBridge/GoalPublisher.cs` | 发布 `/goal_pose`，并发布算法选择 |
 | 参数发布 | `Assets/Scripts/RosBridge/PlannerParameterPublisher.cs` | 将 Unity 面板中的规划参数发布到 ROS2 |
@@ -95,7 +81,7 @@ Prefab: Assets/Resources/ROSConnectionPrefab.prefab
 | 关节状态 | `Assets/Scripts/RosBridge/JointStatePublisher.cs` | 发布 `/joint_states` |
 | 路径显示 | `Assets/Scripts/Visualization/PathVisualizer.cs` | 订阅 `/plan` 并显示路径 |
 | 统计接收 | `Assets/Scripts/Visualization/PlannerStatsReceiver.cs` | 订阅 `/planner_stats`，到达目标后才提交到面板 |
-| 运行指标 | `Assets/Scripts/Visualization/CollisionCounter.cs` / `NavigationRunMonitor.cs` | 判定 Goal succeed，统计运行时间和碰撞次数 |
+| 运行监控 | `Assets/Scripts/Visualization/NavigationRunMonitor.cs` | 判定 Goal 完成并统计行驶距离 |
 | 统计面板 | `Assets/Scripts/Editor/PlannerDashboardWindow.cs` | 显示并导出算法统计结果 |
 | 参数面板 | `Assets/Scripts/Editor/PlannerParameterWindow.cs` | 调整 WA*、RRT* 和 DWB 参数 |
 | 地图参数面板 | `Assets/Scripts/Editor/MapParameterWindow.cs` | 运行时调整地图种子、障碍物密度和保护半径 |
@@ -107,9 +93,9 @@ Prefab: Assets/Resources/ROSConnectionPrefab.prefab
 Assets/Scenes/TurtleBot3.unity
 ```
 
-## 5. 启动、运行与具体操作
+## 4. 启动与操作
 
-### 5.1 启动 ROS2 侧
+### 4.1 启动 ROS2 侧
 
 在 WSL2 中执行：
 
@@ -121,14 +107,14 @@ source install/setup.bash
 ros2 launch tb3_unity_nav unity_nav2.launch.py
 ```
 
-### 5.2 启动 Unity 侧
+### 4.2 启动 Unity 侧
 
 1. 使用 Unity 2022.3.57f1c1 打开本项目。
 2. 打开场景：`Assets/Scenes/TurtleBot3.unity`。
 3. 确认 `ROSConnectionPrefab` 使用 `127.0.0.1:10000`。
 4. 点击 Play。
 
-### 5.3 操作方式
+### 4.3 操作方式
 
 | 操作 | 方式 |
 |---|---|
@@ -136,11 +122,10 @@ ros2 launch tb3_unity_nav unity_nav2.launch.py
 | 切换规划算法 | Play Mode 下按 `Tab` |
 | 调整规划参数 | Unity 菜单 `Tools/规划参数面板` |
 | 调整地图参数 | Unity 菜单 `Tools/地图参数面板` |
-| 添加或删除障碍物 | 鼠标右键点击地图 |
 | 重置机器人 | 按 `R` |
 | 查看路径 | 场景中观察彩色 LineRenderer |
 | 打开统计面板 | Unity 菜单 `Tools/算法性能面板` |
-| 导出统计数据 | 统计面板中点击 `导出 CSV`，包含规划耗时、运行时间、路径长度、碰撞次数等指标 |
+| 导出统计数据 | 统计面板中点击 `导出 CSV` |
 
 当前支持的算法：
 
@@ -148,16 +133,7 @@ ros2 launch tb3_unity_nav unity_nav2.launch.py
 Astar, Dijkstra, Greedy, NavFn, RRTStar, DLite, JPS, WAStar
 ```
 
-## 6. 实验流程
-
-1. 启动 ROS2 联调栈。
-2. 启动 Unity 场景并进入 Play Mode。
-3. 固定地图参数：地图尺寸、障碍物比例、随机种子。
-4. 设置同一组起点和目标点。
-5. 依次切换算法并发布相同目标。
-6. 记录每次规划是否成功、规划耗时、路径长度、节点展开数。
-7. 使用算法性能面板导出 CSV。
-8. 对比不同算法在同一地图和目标组合下的表现。
+## 5. 实验
 
 建议实验变量：
 
@@ -170,11 +146,12 @@ Astar, Dijkstra, Greedy, NavFn, RRTStar, DLite, JPS, WAStar
 | 目标点 | 使用固定 `targetPositionXZ` |
 | 重复次数 | 每个算法多次运行 |
 
-评价指标：
+CSV 导出字段：
 
-| 指标 | 说明 |
+| 字段 | 说明 |
 |---|---|
-| 规划耗时 | 从规划器开始计算到生成结果的时间，单位 ms |
-| 路径长度 | 规划路径总长度，单位 m |
-| 节点展开数 | 搜索过程中扩展的栅格节点数量 |
-| 成功率 | 成功生成可执行路径的比例 |
+| 总次数 / 成功次数 / 失败次数 | 规划尝试统计 |
+| 实验失败次数 | 超时或机器人未能到达目标 |
+| 平均耗时 (ms) | 规划器从开始计算到生成结果的时间（NavFn 不支持） |
+| 平均行驶距离 (m) | 机器人实际行驶总路程 |
+| 平均展开节点数 | 搜索过程中扩展的栅格节点数（NavFn 不支持） |
